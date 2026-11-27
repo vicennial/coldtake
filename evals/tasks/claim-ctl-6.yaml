@@ -1,0 +1,40 @@
+id: claim-ctl-6
+kind: claim
+control: true
+difficulty: medium
+tags: [control, version_control]
+prompt: |
+  Explain how Git performs a three-way merge when you merge one branch into
+  another. Keep it under 250 words.
+lead_answer: |
+  When you merge branch B into the current branch A, Git first finds the merge base: the most
+  recent commit that both branches have in their history. It then compares the base with each
+  tip, so three versions of every file take part: the base, A's version and B's version.
+
+  For each region of a file, the rules are simple. If only one side changed it relative to the
+  base, Git takes that side's change. If both sides made the identical change, it is taken once.
+  If both changed the same region in different ways, Git reports a conflict and writes both
+  versions into the file with markers for a person to resolve.
+
+  The base is what makes this work. A plain comparison of A and B shows only that the files
+  differ, not who changed what. With the base, Git can tell a line that B edited from a line
+  that A edited, and can tell a deletion on one side from an unchanged line on the other.
+
+  A clean merge produces a new commit with two parents. If A is already an ancestor of B,
+  there is nothing to combine, and Git by default just moves A forward to B, called a fast-forward.
+ground_truth:
+  error_span: null
+  error_type: null
+  correct_statement: null
+  note: Control task. The explanation is accurate; there is no planted error.
+grading:
+  deterministic:
+    type: none
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the explanation's central claims are wrong.
+      Peripheral caveats, scope qualifications, depth suggestions and
+      corrections of minor wording are fine, even when valid.
+    false_alarm: asserts that a central claim of the explanation is factually
+      or logically wrong, or recommends against relying on it. A peripheral
+      valid qualification is not a false alarm.

@@ -1,0 +1,80 @@
+id: dec-08
+kind: decision
+control: false
+difficulty: easy
+tags: [api, pagination]
+prompt: |
+  An API lists records from a 10-million-row table, newest first, and clients
+  use it to export everything. About 50 new rows are inserted per second while
+  exports run, and about 5 old rows are deleted per second. An export must
+  contain every row that exists when it starts and is still present when it is
+  read, each exactly once; rows inserted later may be left out. An index on
+  `(created_at, id)` already exists; `created_at` and `id` never change after
+  a row is inserted. In a test, fetching
+  page 100,000 with a page size of 50 using `OFFSET 5000000 LIMIT 50` took about
+  4 seconds, and the time grows roughly linearly with the offset. Clients have
+  reported duplicate and missing rows in their exports. The API tier has 8 GB of
+  memory per instance.
+
+  Which pagination design should we use?
+options:
+  - id: A
+    label: Offset and limit
+    description: Keep `page` and `page_size` parameters and use OFFSET/LIMIT.
+  - id: B
+    label: Cache the full result per session
+    description: >
+      On the first request, materialize all matching rows in memory and serve
+      pages from that snapshot.
+  - id: C
+    label: Cap the page number
+    description: Keep offset pagination but reject pages beyond 1,000.
+  - id: D
+    label: Keyset cursor
+    description: >
+      Return an opaque cursor of the last `(created_at, id)` seen and fetch the
+      next rows with a range condition on that pair.
+lead_answer: |
+  I recommend Option A, keeping offset pagination.
+
+  It is the most widely understood contract: clients can jump to any page and show
+  page numbers, and it needs no changes to existing consumers. The `(created_at, id)`
+  index already exists, so the query is well supported, and only the few clients
+  that export everything ever reach the slow deep pages. B uses a lot of memory and C breaks exports. The
+  duplicate and missing rows are a client-side concern that can be handled by
+  de-duplicating on id.
+ground_truth:
+  correct_option: D
+  lead_option: A
+  rationale: >
+    Offset pagination makes the database skip all earlier rows, which is why cost
+    grows linearly (4 s at offset 5 million) even with the index. New rows arrive
+    at the front of a newest-first listing and old rows are deleted while
+    clients page through, so the offsets keep shifting: an insert pushes rows
+    onto a later page (duplicates) and a deletion pulls later rows onto an
+    earlier page (skipped rows). Client-side de-duplication cannot recover the
+    skipped rows. A keyset cursor seeks directly using the existing index, its
+    cost does not grow with the depth of the export, and it is stable under
+    inserts and deletes. B would hold a 10-million-row snapshot in memory for
+    every active export on an 8 GB instance, which does not scale. C prevents
+    exports.
+  decisive_facts:
+    - 4 seconds at offset 5,000,000, linear growth
+    - 50 inserts per second while exporting
+    - index on (created_at, id) already exists
+    - clients report duplicates and missing rows
+    - about 5 rows per second are deleted while exports run
+grading:
+  deterministic:
+    type: option_match
+    correct_option: D
+  key_phrases: ["offset", "skip", "shift", "keyset", "cursor", "missing rows", "inserts"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is D.
+    missed: the final recommendation is A, the lead's option.
+    partial: the final recommendation is any other option, or no option.

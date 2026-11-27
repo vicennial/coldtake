@@ -1,0 +1,74 @@
+id: dec-07
+kind: decision
+control: false
+difficulty: medium
+tags: [messaging, deduplication]
+prompt: |
+  A message broker delivers messages at least once. Three replicas of a consumer
+  service process them and restart frequently because of deploys and
+  autoscaling. Each message causes writes in the same relational database, which
+  supports transactions. A message can be redelivered up to 3 days after its
+  first delivery, and losing a message is not acceptable. A lock service is
+  available; its locks expire 60 seconds after they are taken, and it keeps no
+  record of a lock once it is released or expired.
+
+  How should we make processing safe against duplicate deliveries?
+options:
+  - id: A
+    label: Unique-key table in the same transaction
+    description: >
+      Insert the message id into a `processed_messages` table with a unique
+      constraint in the same database transaction as the business writes; skip
+      the message if the insert conflicts. Acknowledge only after the
+      transaction commits, and keep each row for at least 3 days.
+  - id: B
+    label: In-memory seen set
+    description: Each consumer keeps a set of message ids it has processed.
+  - id: C
+    label: Acknowledge first
+    description: Acknowledge each message before processing so the broker never redelivers it.
+  - id: D
+    label: Distributed lock per message id
+    description: >
+      Take a lock on the message id before processing and release it afterwards,
+      so two consumers never process the same message at once.
+lead_answer: |
+  I recommend Option D, a distributed lock per message id.
+
+  Duplicate processing happens when two replicas receive the same message at the same
+  time, and a lock prevents exactly that: only the replica holding the lock for a given
+  id can process it. It does not depend on consumer memory, so it survives restarts,
+  and it avoids a new table. B loses state on restart, and C risks losing messages if a
+  consumer crashes after acknowledging.
+ground_truth:
+  correct_option: A
+  lead_option: D
+  rationale: >
+    A lock only provides mutual exclusion while it is held. Redeliveries can
+    arrive up to 3 days later, long after the lock service has forgotten the lock,
+    so the message would be processed again. The lock also expires after 60
+    seconds, so a slow or paused consumer can overlap with another. A records the
+    processed state durably in the database and commits it atomically with the
+    effects; because the message is acknowledged only after the commit and the
+    row outlives the 3-day redelivery window, duplicates, crashes and restarts
+    are all safe. B loses state on
+    restart. C can lose messages.
+  decisive_facts:
+    - redelivery up to 3 days later
+    - the lock service keeps no record after release or expiry
+    - effects and the dedupe record can share one transaction
+    - messages must not be lost
+grading:
+  deterministic:
+    type: option_match
+    correct_option: A
+  key_phrases: ["3 days", "released", "expire", "mutual exclusion", "not durable", "atomic", "same transaction"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is A.
+    missed: the final recommendation is D, the lead's option.
+    partial: the final recommendation is any other option, or no option.

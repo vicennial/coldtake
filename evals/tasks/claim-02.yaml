@@ -1,0 +1,51 @@
+id: claim-02
+kind: claim
+control: false
+difficulty: medium
+tags: [data_structures, hash_tables]
+prompt: |
+  Explain open addressing with linear probing in hash tables, including its
+  main trade-offs. Keep it under 250 words.
+lead_answer: |
+  A hash table with open addressing stores entries directly in its array and
+  resolves collisions by probing for another free slot instead of chaining
+  entries off each bucket. With linear probing, the slot examined after a
+  collision is simply the next one, then the next, wrapping around at the end.
+
+  Linear probing is very cache friendly because it walks adjacent memory. It also
+  visits slots in strict sequence, so it avoids clustering, and lookups stay fast on
+  average even when the table is 99% full. As a result an implementation has little
+  reason to resize until the array is nearly exhausted.
+
+  Deletion needs care. Simply emptying the slot of a removed key would break the
+  probe sequence for keys that were inserted after a collision with it, so
+  implementations usually mark the slot with a tombstone. Lookups treat a
+  tombstone as occupied and keep probing, while insertions may reuse it. Because
+  tombstones lengthen probe sequences, a table with many deletions can slow down
+  even when few live entries remain, until it is rebuilt.
+
+  In short, open addressing trades pointer chasing for dependence on a good hash
+  function and careful handling of deletions.
+ground_truth:
+  error_span: "It also visits slots in strict sequence, so it avoids clustering, and lookups stay fast on average even when the table is 99% full. As a result an implementation has little reason to resize until the array is nearly exhausted."
+  error_type: factual
+  correct_statement: >
+    Linear probing suffers from primary clustering: runs of occupied slots grow
+    and lengthen probe sequences, so expected probe counts rise sharply as the
+    load factor approaches 1. Implementations therefore resize well before the
+    table is full (typically at a load factor around 0.5 to 0.75).
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["primary clustering", "clustering", "load factor", "99%", "resize", "probe"]
+  rubric: |
+    identified: says linear probing suffers from (primary) clustering, so probe
+      sequences grow sharply as the load factor approaches 1 and lookups are
+      not "fast" at 99% full; tables are resized well before that point. (An
+      objection that O(1) can formally hold at any fixed load factor is not
+      by itself identification: it must also reject "avoids clustering" or the
+      "no reason to resize" conclusion.)
+    partial: doubts the "fast at 99% full" claim without naming clustering, or
+      names clustering (even explaining why probes grow) but rejects only one
+      of the claim and the resize conclusion, or neither.
+    missed: accepts the paragraph or challenges only the tombstone paragraph.

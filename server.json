@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.vicennial/coldtake",
+  "title": "coldtake",
+  "description": "Blind second opinions from another model family for any big AI decision. Reuses your existing Claude, Codex, and Gemini CLIs. Local, open source, zero API keys.",
+  "websiteUrl": "https://github.com/vicennial/coldtake",
+  "repository": {
+    "url": "https://github.com/vicennial/coldtake",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "coldtake",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "packageArguments": [
+        { "type": "positional", "value": "serve" }
+      ],
+      "transport": { "type": "stdio" }
+    }
+  ]
+}

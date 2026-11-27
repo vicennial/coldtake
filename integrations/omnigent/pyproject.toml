@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coldtake-omnigent"
+version = "0.1.0"
+description = "Omnigent UI Scorecard extension for coldtake (Extension API v1, conflict-free with polly and debby)"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "vicennial" }]
+requires-python = ">=3.11"
+keywords = ["omnigent", "coldtake", "mcp", "ai-agents", "extension"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/vicennial/coldtake"
+Repository = "https://github.com/vicennial/coldtake"
+Issues = "https://github.com/vicennial/coldtake/issues"
+
+[project.entry-points."omnigent.extensions"]
+coldtake = "coldtake_omnigent:manifest"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coldtake_omnigent"]

@@ -1,0 +1,84 @@
+id: code-02
+kind: code
+control: false
+difficulty: medium
+tags: [off_by_one, sliding_window]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `windows(seq, size, step=1)` that returns a list of every complete window of
+  `size` consecutive elements, starting at index 0 and advancing by `step`.
+
+  - Each window is a list. A window that would run past the end of `seq` is
+    not returned (no partial windows).
+  - If `seq` is shorter than `size`, return an empty list.
+  - Raise `ValueError` if `size < 1` or `step < 1`.
+  - `seq` can be any sequence (list, tuple, range, str).
+lead_answer: |
+  """Sliding-window helper for time-series preprocessing."""
+  from typing import Any, List, Sequence
+
+
+  def windows(seq: Sequence[Any], size: int, step: int = 1) -> List[List[Any]]:
+      """Return all complete windows of ``size`` items, advancing by ``step``.
+
+      >>> windows([1, 2, 3, 4], 2)
+      [[1, 2], [2, 3], [3, 4]]
+      """
+      if size < 1:
+          raise ValueError("size must be >= 1")
+      if step < 1:
+          raise ValueError("step must be >= 1")
+
+      n = len(seq)
+      if n < size:
+          return []
+
+      result: List[List[Any]] = []
+      for start in range(0, n - size, step):
+          result.append(list(seq[start:start + size]))
+      return result
+reference_fix: |
+  """Sliding-window helper for time-series preprocessing."""
+  from typing import Any, List, Sequence
+
+
+  def windows(seq: Sequence[Any], size: int, step: int = 1) -> List[List[Any]]:
+      """Return all complete windows of ``size`` items, advancing by ``step``.
+
+      >>> windows([1, 2, 3, 4], 2)
+      [[1, 2], [2, 3], [3, 4]]
+      """
+      if size < 1:
+          raise ValueError("size must be >= 1")
+      if step < 1:
+          raise ValueError("step must be >= 1")
+
+      n = len(seq)
+      if n < size:
+          return []
+
+      result: List[List[Any]] = []
+      for start in range(0, n - size + 1, step):
+          result.append(list(seq[start:start + size]))
+      return result
+ground_truth:
+  defect_type: off_by_one
+  location: "windows(): `range(0, n - size, step)` loop bound"
+  description: >
+    The range stop is n - size instead of n - size + 1, so the last complete
+    window is never produced (for example windows([1,2,3,4], 4) returns []
+    and windows([0..5], 2, 2) drops the final pair). The docstring example
+    itself would fail.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_02.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["n - size", "+ 1", "last window", "range(", "off-by-one", "docstring"]
+  rubric: |
+    identified: says the loop bound excludes the final complete window and the
+      stop should be n - size + 1 (or equivalent), ideally with a failing example.
+    partial: says some windows are missing or the range bound is suspicious but
+      gives the wrong correction or no concrete cause.
+    missed: does not flag the loop bound.

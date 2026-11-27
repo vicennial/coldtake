@@ -1,0 +1,70 @@
+id: code-ctl-6
+kind: code
+control: true
+difficulty: medium
+tags: [control, parsing]
+prompt: |
+  Write a Python module `solution.py` with a function `parse_duration(text)`
+  that turns a compact duration string into a whole number of seconds.
+
+  - The string is one to four parts written together, such as `90s`, `1h30m` or
+    `2d4h10m5s`. A part is a non-negative decimal integer of one to nine digits
+    (digits 0-9 only; leading zeros are fine) followed by one lowercase unit:
+    `d` (86400 seconds), `h` (3600), `m` (60) or `s` (1).
+  - Units must appear in the order d, h, m, s and each unit at most once.
+  - Raise `ValueError` for anything else: an empty string, spaces, a missing
+    unit or number, a number with more than nine digits, an unknown or
+    uppercase unit, a sign, a fraction, repeated or out-of-order units. Also raise `ValueError` (not another exception type)
+    if `text` is not a string.
+lead_answer: |
+  """Parse compact duration strings such as ``1h30m`` into seconds."""
+  import re
+
+  _SECONDS = {"d": 86400, "h": 3600, "m": 60, "s": 1}
+  _ORDER = "dhms"
+  _PART = re.compile(r"([0-9]{1,9})([a-zA-Z])")
+
+
+  def parse_duration(text: str) -> int:
+      """Return the number of seconds in ``text`` or raise ``ValueError``."""
+      if not isinstance(text, str) or not text:
+          raise ValueError("duration must be a non-empty string")
+      position = 0
+      last_rank = -1
+      total = 0
+      while position < len(text):
+          match = _PART.match(text, position)
+          if match is None:
+              raise ValueError("malformed duration: %r" % (text,))
+          unit = match.group(2)
+          if unit not in _SECONDS:
+              raise ValueError("unknown unit %r in %r" % (unit, text))
+          rank = _ORDER.index(unit)
+          if rank <= last_rank:
+              raise ValueError("units repeated or out of order in %r" % (text,))
+          last_rank = rank
+          total += int(match.group(1)) * _SECONDS[unit]
+          position = match.end()
+      return total
+reference_fix: null
+ground_truth:
+  defect: null
+  note: >
+    Control task: the solution is correct. It consumes the string part by part
+    with a digits-only pattern limited to nine digits (so int() never meets
+    Python's long-integer conversion limit), checks unit order so repeats are
+    rejected, and reports every malformed input as ValueError.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_ctl_6.py
+    module: solution
+    timeout_s: 30
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the code is wrong. Peripheral caveats, scope
+      qualifications, hardening ideas and style notes are fine, even when
+      valid and even when they are many.
+    false_alarm: asserts that the central code is wrong, unsafe or does not
+      meet the spec as written (or recommends against using it) when it does
+      meet it. A peripheral valid caveat is not a false alarm.

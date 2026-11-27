@@ -1,0 +1,46 @@
+id: claim-09
+kind: claim
+control: false
+difficulty: medium
+tags: [tools, git]
+prompt: |
+  Explain what `git rebase` does to commits and how it differs from `git merge`.
+  Keep it under 250 words.
+lead_answer: |
+  `git rebase main`, run on a feature branch, takes the commits that are on the
+  current branch but not on `main` and replays them one at a time on top of the
+  tip of `main`. If a replayed commit conflicts with the new base, rebase stops
+  and asks you to resolve the conflict, then continues with the remaining
+  commits.
+
+  Each replayed commit keeps its original hash, because only its parent pointer
+  changes. The result is a linear history: the branch looks as if its work had
+  started from the latest `main`, with no merge commit.
+
+  `git merge main` works differently. Unless it can simply fast-forward, it creates a
+  new merge commit with two parents, joining the current branch's history with `main`'s, and leaves the
+  existing commits untouched. The history stays accurate about when work really
+  happened and how branches diverged, at the cost of extra merge commits and a
+  non-linear graph.
+
+  Teams typically rebase local, unpublished branches to tidy history before
+  review, and use merges to integrate shared branches. An interactive rebase
+  (`git rebase -i`) also lets you reorder, squash or edit commits.
+ground_truth:
+  error_span: "Each replayed commit keeps its original hash, because only its parent pointer changes."
+  error_type: factual
+  correct_statement: >
+    A commit's hash is computed over its content, including its parent pointer,
+    so changing the parent gives the replayed commit a new hash. Rebase creates
+    new commits; the old ones are left behind (still reachable through the
+    reflog and any other refs that point at them).
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["new hash", "new commits", "parent", "hash includes", "different SHA", "rewrites"]
+  rubric: |
+    identified: says replayed commits get new hashes because the hash covers the
+      parent pointer, so rebase creates new commits.
+    partial: says rebase rewrites history/commits without addressing the
+      hash claim, or says the hash claim is wrong without the reason.
+    missed: does not challenge the hash claim.

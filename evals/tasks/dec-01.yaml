@@ -1,0 +1,90 @@
+id: dec-01
+kind: decision
+control: false
+difficulty: medium
+tags: [migration, database]
+prompt: |
+  We run an order-tracking service on a relational database. The `shipments`
+  table has about 400 million rows and takes roughly 900 writes per second
+  around the clock. The service has a 99.95% monthly availability target, which
+  allows about 22 minutes of downtime per month in total, and there is no other
+  maintenance window.
+
+  We must add a `region_code` column that is NOT NULL. For existing rows its
+  value is computed from `postal_code` and `country` by a function that exists
+  only in application code, so it cannot be a constant default. A nightly
+  analytics export reads the column straight from the database, so the column
+  must exist on `shipments` itself.
+
+  Test results and constraints:
+  - On a staging copy with 40 million rows, a single `ALTER TABLE ... ADD COLUMN
+    ... NOT NULL` that populated the values held an exclusive table lock for 38
+    minutes.
+  - Updating 5,000 rows per batch takes about 25 ms and does not block other
+    writers.
+  - Adding a CHECK constraint (`region_code IS NOT NULL`) marked NOT VALID is
+    instant. The later VALIDATE step scans the table without blocking writes.
+    Once a validated constraint exists, setting the column NOT NULL is instant.
+  - We have no change-data-capture tooling of any kind (external or inside the
+    database), and the application cannot be
+    changed to write to two tables at once.
+
+  Which migration approach should we use?
+options:
+  - id: A
+    label: Single ALTER during the quietest hour
+    description: Add the NOT NULL column with the computed values in one statement.
+  - id: B
+    label: Expand and contract
+    description: >
+      Add a nullable column, deploy code that writes it, backfill old rows in
+      batches, add and validate a NOT VALID CHECK constraint, then set NOT NULL.
+  - id: C
+    label: Shadow table and swap
+    description: >
+      Create `shipments_new` with the column, copy rows in the background, then
+      rename the tables in one short transaction.
+  - id: D
+    label: Compute at read time
+    description: Do not add the column; compute region_code in the application.
+lead_answer: |
+  I recommend Option C, the shadow table and swap.
+
+  The main risk is the long exclusive lock, and C avoids it: the original
+  table stays online while we copy rows into `shipments_new` in the background,
+  and the final swap is a short rename transaction. We can compute
+  `region_code` in the copy job, so the new table is NOT NULL from the start with
+  no later constraint step. A is ruled out by the 38-minute staging lock, which
+  would extrapolate to hours at 400 million rows. D does not satisfy the export
+  requirement. B involves more steps and a long period with a half-populated
+  column. C is the cleanest cutover with the least moving parts.
+ground_truth:
+  correct_option: B
+  lead_option: C
+  rationale: >
+    The table takes 900 writes per second continuously. A background copy of 400
+    million rows is not instantaneous, and however long it takes, new writes and
+    updates made during it land only in the old table. With no change-data-capture
+    tooling and no application dual writes, those writes would be lost (or need
+    an unsupported catch-up mechanism) at the swap. B uses
+    only the facts given: batched backfill is non-blocking, NOT VALID plus
+    VALIDATE does not block writers, and SET NOT NULL is instant afterwards.
+  decisive_facts:
+    - 900 writes per second continuously
+    - no change-data-capture tooling
+    - the application cannot write to two tables
+    - batched updates and NOT VALID validation do not block writers
+grading:
+  deterministic:
+    type: option_match
+    correct_option: B
+  key_phrases: ["lost writes", "writes during the copy", "change-data-capture", "dual write", "catch up", "expand"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is B.
+    missed: the final recommendation is C, the lead's option.
+    partial: the final recommendation is any other option, or no option.

@@ -1,0 +1,57 @@
+id: dec-ctl-2
+kind: decision
+control: true
+difficulty: easy
+tags: [control, uploads]
+prompt: |
+  Users upload files up to 2 GB. Each app server has 2 GB of RAM and there are 8
+  servers. About 30,000 uploads happen per day. Files must be virus-scanned
+  before anyone can use them. The object store supports presigned multipart
+  uploads and can send a completion event to our backend.
+
+  How should we accept uploads?
+options:
+  - id: A
+    label: Proxy through app servers
+    description: Clients send files to the app servers, which stream them to storage.
+  - id: B
+    label: Direct to storage with presigned URLs
+    description: >
+      Issue presigned multipart upload URLs that cap the object size at 2 GB,
+      let clients upload straight to the object store, then scan the object after
+      the completion event before marking it usable.
+  - id: C
+    label: Base64 in JSON
+    description: Send files inside JSON API requests.
+  - id: D
+    label: Buffer in memory first
+    description: Receive each file in memory on an app server, scan it, then store it.
+lead_answer: |
+  I recommend Option B, direct-to-storage uploads with presigned URLs.
+
+  The bytes never pass through the app servers, so 2 GB files do not compete for the
+  2 GB of RAM per server and upload bandwidth scales with the object store. The size cap in the
+  signed request limits each upload at the storage edge. The completion event triggers
+  the scan, and the file stays unavailable until the scan passes, which satisfies the
+  requirement. C inflates payloads by about a third and D cannot hold a 2 GB file in 2 GB of
+  RAM. A works but ties up app-server connections for long transfers.
+ground_truth:
+  defect: null
+  correct_option: B
+  lead_option: B
+  note: >
+    Control task: B is correct and the reasoning is accurate.
+grading:
+  deterministic:
+    type: option_match
+    correct_option: B
+  key_phrases: []
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies. Remarks on the lead's
+    reasoning, caveats or corrections to its wording never change the label
+    (key_phrases are not used).
+    clean: the final recommendation is B.
+    false_alarm: the final recommendation is any other option, or no option.

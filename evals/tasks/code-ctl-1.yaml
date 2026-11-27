@@ -1,0 +1,66 @@
+id: code-ctl-1
+kind: code
+control: true
+difficulty: medium
+tags: [control, path_traversal]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `resolve_member(dest, member)` used while unpacking an archive. `member` is
+  the entry name stored in the archive (untrusted).
+
+  - Return, as a `str`, the absolute, symlink-resolved path where the entry
+    must be written below the directory `dest`. Assume a POSIX system and no
+    symlink loops.
+  - Raise `ValueError` if `member` is empty, is absolute (it starts with `/` or
+    `\`), starts with a Windows drive letter and a colon (an ASCII letter then
+    `:`, such as `C:/x` or `c:x`), or if the resolved path is not strictly
+    inside `dest` (equal to `dest` is not allowed: an entry must have a name).
+    This includes `..` segments and symlinks that lead outside `dest`.
+  - Any other name is valid, including names with a colon elsewhere such as
+    `1:report.txt` or `logs/a:b.txt`.
+lead_answer: |
+  """Safe destination paths for archive extraction."""
+  import os
+
+
+  def resolve_member(dest: str, member: str) -> str:
+      """Return the extraction path for ``member`` below ``dest``."""
+      if not member:
+          raise ValueError("empty member name")
+      if os.path.isabs(member) or member.startswith(("/", "\\")):
+          raise ValueError("absolute member name: %r" % member)
+      if len(member) > 1 and member[1] == ":" and member[0].isascii() and member[0].isalpha():
+          raise ValueError("drive-qualified member name: %r" % member)
+
+      dest_real = os.path.realpath(dest)
+      target = os.path.realpath(os.path.join(dest_real, member))
+
+      try:
+          common = os.path.commonpath([dest_real, target])
+      except ValueError:  # e.g. different drives
+          raise ValueError("member escapes destination: %r" % member)
+      if common != dest_real or target == dest_real:
+          raise ValueError("member escapes destination: %r" % member)
+      return target
+reference_fix: null
+ground_truth:
+  defect: null
+  note: >
+    Control task: the solution is correct. Containment uses commonpath on
+    resolved paths (no prefix bug), rejects absolute names and names that start
+    with a drive letter and a colon (but accepts other colons), and rejects the
+    destination itself.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_ctl_1.py
+    module: solution
+    timeout_s: 30
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the code is wrong. Peripheral caveats, scope
+      qualifications, hardening ideas and style notes are fine, even when
+      valid and even when they are many.
+    false_alarm: asserts that the central code is wrong, unsafe or does not
+      meet the spec as written (or recommends against using it) when it does
+      meet it. A peripheral valid caveat is not a false alarm.

@@ -1,0 +1,44 @@
+id: claim-08
+kind: claim
+control: false
+difficulty: medium
+tags: [distributed_systems, consensus]
+prompt: |
+  Explain how Raft uses majorities to commit log entries and how many server
+  failures a cluster can tolerate. Keep it under 250 words.
+lead_answer: |
+  Raft keeps a replicated log consistent across servers by electing a single
+  leader per term. Clients send commands to the leader, which appends them to its
+  log and replicates them to the followers. An entry from the leader's current term is
+  committed once the leader has stored it on a majority of the servers. Committed entries are never lost
+  or overwritten, and servers apply them to their state machines in log order.
+
+  A cluster of five servers therefore needs three servers to agree, and it keeps
+  making progress as long as any three can communicate with each other, so it
+  tolerates up to three server failures. Majorities matter because any two
+  majorities overlap in at least one server, which is what prevents two leaders
+  from committing conflicting entries.
+
+  If the leader fails, followers stop receiving its heartbeats and their election
+  timers expire. The timers are randomized to reduce split votes. A follower that
+  times out becomes a candidate, increments the term and requests votes from the
+  others. A candidate that receives votes from a majority becomes the new leader
+  and starts sending heartbeats, which ends the election.
+
+  Votes are granted only to candidates whose logs are at least as up to date as
+  the voter's own log.
+ground_truth:
+  error_span: "so it tolerates up to three server failures"
+  error_type: logical
+  correct_statement: >
+    A five-server cluster needs three servers available, so it tolerates at most
+    two failures (a cluster of 2f+1 servers tolerates f failures).
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["two failures", "2f+1", "five servers", "three failures", "tolerates"]
+  rubric: |
+    identified: says five servers tolerate two failures (2f+1), not three.
+    partial: says the failure-tolerance number is inconsistent with "needs three
+      servers" without giving two.
+    missed: does not challenge the number.

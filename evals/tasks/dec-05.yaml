@@ -1,0 +1,79 @@
+id: dec-05
+kind: decision
+control: false
+difficulty: medium
+tags: [queues, ordering, throughput]
+prompt: |
+  An event pipeline receives 5,000 account events per second. Handling one event
+  takes about 40 ms of work and has side effects that must be applied in the
+  order the events were produced for the same account; events for different
+  accounts are independent. There are about 100,000 accounts. No single account
+  produces more than 20 events per second, and account volumes are fairly
+  uniform, with no partition expected to see more than about twice the average
+  load. We want the simplest design that keeps per-account order and keeps up
+  with the load, without adding storage to the event path. The broker supports partitioned
+  topics (messages with the same key always go to the same partition and are
+  consumed in order by one consumer at a time) as well as unpartitioned queues
+  with competing consumers.
+
+  Which design should we use?
+options:
+  - id: A
+    label: Single consumer
+    description: One consumer processes the queue sequentially.
+  - id: B
+    label: Keyed partitions
+    description: >
+      Key messages by account_id across 512 partitions with one consumer per
+      partition.
+  - id: C
+    label: Shared queue, many workers
+    description: One unpartitioned queue with 256 competing workers.
+  - id: D
+    label: Random partitions, sort later
+    description: >
+      Spread events randomly over 256 partitions and reorder them by sequence
+      number in a database before applying side effects.
+lead_answer: |
+  I recommend Option C, a shared queue with 256 competing workers.
+
+  The load needs about 5,000 x 0.04 = 200 concurrent handlers, so 256 workers gives
+  headroom. A shared queue balances load automatically, since any idle worker takes
+  the next event, which avoids hot partitions and keeps latency low. A single
+  consumer (A) can only do 25 events per second, and partitioning (B) risks
+  imbalance between busy and quiet accounts.
+ground_truth:
+  correct_option: B
+  lead_option: C
+  rationale: >
+    Per-account ordering is a hard requirement. With competing consumers, two
+    events for the same account can be handled concurrently by different workers
+    or finish out of order, so side effects are applied out of order. B keeps
+    each account on one partition: 5,000 / 512 is about 10 events per second per
+    partition, which is 0.4 utilization at 40 ms each, leaving headroom for
+    uneven load up to about twice the average, and the per-account cap of 20
+    events per second also fits one consumer (which handles 25 per second). A
+    gives only 25 events per second in total. D restores order in a database
+    buffer before applying side effects, which can work but needs per-account
+    sequence numbers, gap handling and storage in the event path for 5,000
+    events per second, where B gets the order for free.
+  decisive_facts:
+    - side effects must be applied in per-account order
+    - partitioned topics keep keyed messages in order
+    - 5,000 events per second at 40 ms needs about 200 concurrent handlers
+    - the simplest design that keeps order, without storage in the event path
+    - 20 events per second maximum per account
+grading:
+  deterministic:
+    type: option_match
+    correct_option: B
+  key_phrases: ["ordering", "out of order", "per-account", "partition", "competing consumers", "same account"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is B.
+    missed: the final recommendation is C, the lead's option.
+    partial: the final recommendation is any other option, or no option.

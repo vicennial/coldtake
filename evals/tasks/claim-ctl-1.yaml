@@ -1,0 +1,44 @@
+id: claim-ctl-1
+kind: claim
+control: true
+difficulty: medium
+tags: [control, dns]
+prompt: |
+  Explain how DNS caching and TTLs work, and what to do before a planned change
+  to a record. Keep it under 250 words.
+lead_answer: |
+  When a recursive resolver looks up a name, it caches the answer for the time to
+  live (TTL) that the authoritative server attached to the record. Until the TTL
+  expires the resolver answers repeat queries from its cache without contacting
+  the authoritative servers. This reduces load and latency, but it also means a
+  changed record is not seen everywhere at once: each resolver keeps serving its
+  cached copy until its own timer runs out.
+
+  Failures can be cached too. A response saying that a name does not exist can be
+  cached for a period set by the zone's SOA record, so a name that was queried
+  before it was created may keep failing for a while.
+
+  Applications and operating systems often add their own caches on top of the
+  resolver's, and some ignore or clamp TTL values, so the real propagation time can
+  exceed the published TTL.
+
+  Before a planned change, such as moving a service to a new IP address, lower the
+  record's TTL well ahead of time, at least as long as the old TTL, so that
+  resolvers have refreshed the short value by the change. Make the change, confirm
+  it, and raise the TTL again afterwards.
+ground_truth:
+  error_span: null
+  error_type: null
+  correct_statement: null
+  note: Control task. The explanation is accurate; there is no planted error.
+grading:
+  deterministic:
+    type: none
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the explanation's central claims are wrong.
+      Peripheral caveats, scope qualifications, depth suggestions and
+      corrections of minor wording are fine, even when valid.
+    false_alarm: asserts that a central claim of the explanation is factually
+      or logically wrong, or recommends against relying on it. A peripheral
+      valid qualification is not a false alarm.

@@ -1,0 +1,112 @@
+id: code-04
+kind: code
+control: false
+difficulty: hard
+tags: [race, cache]
+prompt: |
+  Write a Python module `solution.py` with a thread-safe class
+  `LoadingCache(loader)`.
+
+  - `get(key)` returns the cached value, calling `loader(key)` to compute it on
+    the first request for that key.
+  - The loader is expensive and has side effects: it must be called at most once
+    per key, even when many threads ask for the same missing key at the same
+    time.
+  - If the loader raises, the exception propagates to the caller and nothing is
+    cached, so a later `get` tries again (a thread that was waiting for the
+    failed load may run the loader itself).
+  - `invalidate(key)` removes a key (no error if absent); the next `get`
+    reloads it. A `get` that overlaps an `invalidate` may return either the old
+    or the reloaded value.
+  - `len(cache)` returns the number of cached keys.
+  - The loader never calls back into the cache.
+lead_answer: |
+  """A small thread-safe loading cache."""
+  import threading
+  from typing import Any, Callable, Dict, Hashable
+
+
+  class LoadingCache:
+      """Cache values computed by an expensive ``loader``."""
+
+      def __init__(self, loader: Callable[[Hashable], Any]) -> None:
+          self._loader = loader
+          self._data: Dict[Hashable, Any] = {}
+          self._lock = threading.Lock()
+
+      def get(self, key: Hashable) -> Any:
+          """Return the value for ``key``, loading it on first use."""
+          try:
+              return self._data[key]
+          except KeyError:
+              pass
+
+          value = self._loader(key)  # may raise; nothing is stored then
+
+          with self._lock:
+              # Keep the first stored value if another thread got here first.
+              return self._data.setdefault(key, value)
+
+      def invalidate(self, key: Hashable) -> None:
+          """Drop ``key`` from the cache if present."""
+          with self._lock:
+              self._data.pop(key, None)
+
+      def __len__(self) -> int:
+          with self._lock:
+              return len(self._data)
+reference_fix: |
+  """A small thread-safe loading cache."""
+  import threading
+  from typing import Any, Callable, Dict, Hashable
+
+
+  class LoadingCache:
+      """Cache values computed by an expensive ``loader``."""
+
+      def __init__(self, loader: Callable[[Hashable], Any]) -> None:
+          self._loader = loader
+          self._data: Dict[Hashable, Any] = {}
+          self._lock = threading.Lock()
+
+      def get(self, key: Hashable) -> Any:
+          """Return the value for ``key``, loading it on first use."""
+          with self._lock:
+              if key in self._data:
+                  return self._data[key]
+              value = self._loader(key)  # may raise; nothing is stored then
+              self._data[key] = value
+              return value
+
+      def invalidate(self, key: Hashable) -> None:
+          """Drop ``key`` from the cache if present."""
+          with self._lock:
+              self._data.pop(key, None)
+
+      def __len__(self) -> int:
+          with self._lock:
+              return len(self._data)
+ground_truth:
+  defect_type: race
+  location: "LoadingCache.get(): the lookup and the loader call are not done under the lock"
+  description: >
+    The membership check and the call to the loader happen outside the lock, and
+    the lock is taken only to store the result. Two threads that both miss will
+    both call the loader (check-then-act race), violating the "at most once per
+    key" requirement. setdefault only makes the stored value consistent; it does
+    not prevent the duplicate load and its side effects.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_04.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["check-then-act", "twice", "at most once", "outside the lock", "setdefault", "duplicate", "concurrent"]
+  rubric: |
+    identified: says two concurrent misses can both run the loader because the
+      lookup/load is not protected by the lock (setdefault does not fix that),
+      violating at-most-once loading.
+    partial: notes a thread-safety concern in get() (e.g. unlocked read or
+      "dict access") without identifying the duplicate-load consequence.
+    missed: states the class is correctly thread-safe, or flags only unrelated
+      issues.

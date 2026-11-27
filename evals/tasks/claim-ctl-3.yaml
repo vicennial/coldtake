@@ -1,0 +1,43 @@
+id: claim-ctl-3
+kind: claim
+control: true
+difficulty: medium
+tags: [control, http]
+prompt: |
+  Explain how HTTP conditional requests with ETags let a cache reuse a stored
+  response, and how this differs from freshness. Keep it under 250 words.
+lead_answer: |
+  An ETag is an opaque validator that a server attaches to a response to identify a
+  particular version of the resource. A cache that stores the response can later ask
+  whether its copy is still good by repeating the request with an `If-None-Match`
+  header containing the stored ETag. If the resource has not changed, the server answers
+  `304 Not Modified` with no body, and the cache reuses the body it already has. If it has
+  changed, the server sends a normal `200` response with the new body and a new ETag.
+
+  This saves bandwidth but not the round trip: the request still reaches the server, which
+  must decide whether the version matches.
+
+  Freshness is a separate question. `Cache-Control: max-age` says how long a stored
+  response may be reused without asking the server at all. Once it becomes stale, the cache
+  does not have to discard it; it can revalidate it with the ETag, and a `304` makes the
+  stored response fresh again.
+
+  A weak ETag, written with a `W/` prefix, promises only that two versions are semantically
+  equivalent, not byte-identical. That is enough for `If-None-Match`, which uses weak
+  comparison.
+ground_truth:
+  error_span: null
+  error_type: null
+  correct_statement: null
+  note: Control task. The explanation is accurate; there is no planted error.
+grading:
+  deterministic:
+    type: none
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the explanation's central claims are wrong.
+      Peripheral caveats, scope qualifications, depth suggestions and
+      corrections of minor wording are fine, even when valid.
+    false_alarm: asserts that a central claim of the explanation is factually
+      or logically wrong, or recommends against relying on it. A peripheral
+      valid qualification is not a false alarm.

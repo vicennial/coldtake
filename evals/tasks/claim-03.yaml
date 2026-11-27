@@ -1,0 +1,43 @@
+id: claim-03
+kind: claim
+control: false
+difficulty: easy
+tags: [http, caching]
+prompt: |
+  Explain how HTTP response headers control caching: freshness, revalidation and
+  who may store a response. Keep it under 250 words.
+lead_answer: |
+  HTTP caches use response headers to decide whether a stored response may be
+  reused. `Cache-Control: max-age=N` says the response stays fresh for N seconds
+  after it was generated. While it is fresh a cache can answer without contacting
+  the origin. After that the cache normally revalidates: it sends a conditional
+  request carrying `If-None-Match` (with the stored `ETag`) or
+  `If-Modified-Since`. If the resource has not changed the origin replies
+  `304 Not Modified` with no body and the cache refreshes the stored copy.
+
+  The `no-cache` directive tells caches not to store the response at all, which
+  makes it the right choice for pages that contain personal data. By contrast,
+  `private` allows only the end user's own browser cache to keep a response, not
+  shared caches such as a CDN or proxy, while `public` explicitly allows shared
+  caches to store it even when the request was authenticated.
+
+  Finally, the `Vary` header lists request headers (for example
+  `Accept-Encoding`) that the origin used to pick the response, so a cache must
+  keep separate variants and only reuse one when those request headers match.
+ground_truth:
+  error_span: "The `no-cache` directive tells caches not to store the response at all, which makes it the right choice for pages that contain personal data."
+  error_type: factual
+  correct_statement: >
+    `no-cache` allows storing but requires revalidation with the origin before
+    every reuse. `no-store` is the directive that forbids storing, and is the
+    one meant for sensitive responses.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["no-store", "revalidate", "no-cache", "store"]
+  rubric: |
+    identified: says no-cache permits storage but forces revalidation, and that
+      no-store is the directive that prevents storing.
+    partial: says the no-cache description is wrong without giving the correct
+      meaning, or mixes it up the other way.
+    missed: does not challenge the no-cache sentence.

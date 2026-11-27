@@ -1,0 +1,82 @@
+id: code-11
+kind: code
+control: false
+difficulty: medium
+tags: [security, header_injection]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `redirect_headers(url, status=302)` that builds the response headers for an
+  HTTP redirect where `url` may come from user input (a `?next=` parameter).
+
+  - Return a list of `(name, value)` tuples: `("Location", url)` and
+    `("Cache-Control", "no-store")`, in that order.
+  - Raise `ValueError` if `url` is empty or contains any ASCII control
+    character (code points 0x00-0x1F or 0x7F), which prevents header injection.
+  - Raise `ValueError` if `status` is not one of 301, 302, 303, 307, 308.
+lead_answer: |
+  """Build redirect response headers safely."""
+  from typing import List, Tuple
+
+  _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+
+
+  def redirect_headers(url: str, status: int = 302) -> List[Tuple[str, str]]:
+      """Return headers for a redirect to ``url``.
+
+      Raises ValueError for unsafe URLs or non-redirect status codes.
+      """
+      if status not in _REDIRECT_STATUSES:
+          raise ValueError("not a redirect status: %r" % (status,))
+      if not url:
+          raise ValueError("empty redirect target")
+
+      # Newlines would let an attacker inject extra headers or split the response.
+      if "\n" in url or "\x00" in url:
+          raise ValueError("control characters in redirect target")
+
+      return [("Location", url), ("Cache-Control", "no-store")]
+reference_fix: |
+  """Build redirect response headers safely."""
+  from typing import List, Tuple
+
+  _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+
+
+  def redirect_headers(url: str, status: int = 302) -> List[Tuple[str, str]]:
+      """Return headers for a redirect to ``url``.
+
+      Raises ValueError for unsafe URLs or non-redirect status codes.
+      """
+      if status not in _REDIRECT_STATUSES:
+          raise ValueError("not a redirect status: %r" % (status,))
+      if not url:
+          raise ValueError("empty redirect target")
+
+      # Control characters would let an attacker inject extra headers or split
+      # the response.
+      if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in url):
+          raise ValueError("control characters in redirect target")
+
+      return [("Location", url), ("Cache-Control", "no-store")]
+ground_truth:
+  defect_type: injection
+  location: "redirect_headers(): the control-character check `\"\\n\" in url or \"\\x00\" in url`"
+  description: >
+    The validation only rejects LF and NUL. A bare carriage return (and every
+    other control character in 0x01-0x1F apart from LF, plus DEL) passes, and
+    CR alone is treated as a line terminator by some HTTP parsers and proxies,
+    so header injection remains possible. The spec requires rejecting all of
+    0x00-0x1F and 0x7F.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_11.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["\\r", "carriage return", "CR", "control character", "0x1f", "0x7f", "incomplete"]
+  rubric: |
+    identified: says the control-character check is incomplete (misses \r and
+      other control characters/DEL) and header injection is still possible.
+    partial: says header-injection validation could be bypassed or is too
+      narrow without naming the missing characters.
+    missed: says the validation is sufficient or does not flag it.

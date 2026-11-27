@@ -1,0 +1,62 @@
+id: code-ctl-3
+kind: code
+control: true
+difficulty: easy
+tags: [control, pagination]
+prompt: |
+  Write a Python module `solution.py` with two functions for paging through a
+  list of `total` items.
+
+  - `page_bounds(total, page, per_page)` returns `(start, stop)` so that
+    `items[start:stop]` is the requested page. Pages are numbered from 1. A page
+    past the end returns an empty range `(total, total)`. A last page that is
+    only partly full returns the items that exist.
+  - `page_count(total, per_page)` returns how many pages are needed (0 when
+    `total` is 0).
+  - Raise `ValueError` if `total < 0`, `page < 1` or `per_page < 1`.
+lead_answer: |
+  """Slice bounds and page counts for paginated lists."""
+
+
+  def _check(total: int, per_page: int) -> None:
+      if total < 0:
+          raise ValueError("total must be >= 0")
+      if per_page < 1:
+          raise ValueError("per_page must be >= 1")
+
+
+  def page_bounds(total: int, page: int, per_page: int) -> tuple:
+      """Return ``(start, stop)`` for a 1-based page of ``per_page`` items."""
+      _check(total, per_page)
+      if page < 1:
+          raise ValueError("page must be >= 1")
+      start = min((page - 1) * per_page, total)
+      stop = min(start + per_page, total)
+      return start, stop
+
+
+  def page_count(total: int, per_page: int) -> int:
+      """Number of pages needed to show ``total`` items."""
+      _check(total, per_page)
+      return (total + per_page - 1) // per_page
+reference_fix: null
+ground_truth:
+  defect: null
+  note: >
+    Control task: the solution is correct. The start index is clamped to
+    total, the stop index never passes total, and the page count is a ceiling
+    division that gives 0 for an empty list.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_ctl_3.py
+    module: solution
+    timeout_s: 30
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the code is wrong. Peripheral caveats, scope
+      qualifications, hardening ideas and style notes are fine, even when
+      valid and even when they are many.
+    false_alarm: asserts that the central code is wrong, unsafe or does not
+      meet the spec as written (or recommends against using it) when it does
+      meet it. A peripheral valid caveat is not a false alarm.

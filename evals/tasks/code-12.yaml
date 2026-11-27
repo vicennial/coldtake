@@ -1,0 +1,111 @@
+id: code-12
+kind: code
+control: false
+difficulty: easy
+tags: [wrong_default, cookies]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `make_cookie(name, value, *, max_age=None, secure=True, httponly=True,
+  samesite="Lax", path="/")` that returns a `Set-Cookie` header value string.
+
+  - Format: `name=value; Path=<path>` then, in this order, `Max-Age=<n>` (only
+    if `max_age` is not None), `Secure` (if secure), `HttpOnly` (if httponly),
+    `SameSite=<samesite>` (if samesite is not None).
+  - The defaults shown in the signature are part of the contract: callers who
+    pass nothing extra must get a secure, HttpOnly, SameSite=Lax cookie.
+  - `samesite` must be `"Strict"`, `"Lax"`, `"None"` or None, otherwise raise
+    `ValueError`. `SameSite=None` requires `secure=True`, otherwise `ValueError`.
+  - Raise `ValueError` if `name` is empty or contains any of `=;, \t\r\n`.
+lead_answer: |
+  """Build Set-Cookie header values."""
+  from typing import Optional
+
+  _VALID_SAMESITE = {"Strict", "Lax", "None"}
+  _FORBIDDEN_NAME_CHARS = set("=;, \t\r\n")
+
+
+  def make_cookie(
+      name: str,
+      value: str,
+      *,
+      max_age: Optional[int] = None,
+      secure: bool = True,
+      httponly: bool = False,
+      samesite: Optional[str] = "Lax",
+      path: str = "/",
+  ) -> str:
+      """Return a ``Set-Cookie`` header value."""
+      if not name or any(ch in _FORBIDDEN_NAME_CHARS for ch in name):
+          raise ValueError("invalid cookie name: %r" % name)
+      if samesite is not None and samesite not in _VALID_SAMESITE:
+          raise ValueError("invalid SameSite value: %r" % (samesite,))
+      if samesite == "None" and not secure:
+          raise ValueError("SameSite=None requires Secure")
+
+      parts = ["%s=%s" % (name, value), "Path=%s" % path]
+      if max_age is not None:
+          parts.append("Max-Age=%d" % max_age)
+      if secure:
+          parts.append("Secure")
+      if httponly:
+          parts.append("HttpOnly")
+      if samesite is not None:
+          parts.append("SameSite=%s" % samesite)
+      return "; ".join(parts)
+reference_fix: |
+  """Build Set-Cookie header values."""
+  from typing import Optional
+
+  _VALID_SAMESITE = {"Strict", "Lax", "None"}
+  _FORBIDDEN_NAME_CHARS = set("=;, \t\r\n")
+
+
+  def make_cookie(
+      name: str,
+      value: str,
+      *,
+      max_age: Optional[int] = None,
+      secure: bool = True,
+      httponly: bool = True,
+      samesite: Optional[str] = "Lax",
+      path: str = "/",
+  ) -> str:
+      """Return a ``Set-Cookie`` header value."""
+      if not name or any(ch in _FORBIDDEN_NAME_CHARS for ch in name):
+          raise ValueError("invalid cookie name: %r" % name)
+      if samesite is not None and samesite not in _VALID_SAMESITE:
+          raise ValueError("invalid SameSite value: %r" % (samesite,))
+      if samesite == "None" and not secure:
+          raise ValueError("SameSite=None requires Secure")
+
+      parts = ["%s=%s" % (name, value), "Path=%s" % path]
+      if max_age is not None:
+          parts.append("Max-Age=%d" % max_age)
+      if secure:
+          parts.append("Secure")
+      if httponly:
+          parts.append("HttpOnly")
+      if samesite is not None:
+          parts.append("SameSite=%s" % samesite)
+      return "; ".join(parts)
+ground_truth:
+  defect_type: wrong_default
+  location: "make_cookie() signature: `httponly: bool = False`"
+  description: >
+    The spec makes HttpOnly part of the default contract (secure=True,
+    httponly=True). The code defaults httponly to False, so cookies created
+    with default arguments are readable from JavaScript, which exposes session
+    cookies to script injection.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_12.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["httponly", "default", "False", "HttpOnly", "contract", "should be True"]
+  rubric: |
+    identified: says the `httponly` parameter defaults to False but the spec
+      requires True (so default cookies lack HttpOnly).
+    partial: says some security-attribute default is wrong or that cookie flags
+      need review without naming httponly.
+    missed: does not flag the default.

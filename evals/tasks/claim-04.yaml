@@ -1,0 +1,47 @@
+id: claim-04
+kind: claim
+control: false
+difficulty: hard
+tags: [databases, isolation]
+prompt: |
+  Explain snapshot isolation in databases and which anomalies it does and does
+  not prevent. Keep it under 250 words.
+lead_answer: |
+  Under snapshot isolation each transaction reads from a consistent snapshot of
+  the database taken when it starts, so it never sees changes made by
+  transactions that were running at the same time. Reads do not block writes and
+  writes do not block reads, which is a major reason the level is popular in
+  multi-version databases.
+
+  Writes are checked at commit. If two concurrent transactions modify the same
+  row, the first to commit wins and the other must abort and retry. This
+  "first committer wins" rule prevents lost updates. Together with the
+  snapshot reads, it also prevents dirty reads, non-repeatable reads and phantom
+  reads of the kind that a repeated query would expose within one transaction.
+
+  Because every transaction operates on a consistent snapshot and conflicting
+  writes are always detected, snapshot isolation is equivalent to serializable
+  execution and rules out write skew, in which two transactions each read a set
+  of rows and then update different rows based on what they read.
+
+  Snapshot reads need old row versions to be kept until no active transaction
+  can still need them, so long-running transactions increase storage overhead and
+  cleanup work.
+ground_truth:
+  error_span: "snapshot isolation is equivalent to serializable execution and rules out write skew"
+  error_type: factual
+  correct_statement: >
+    Snapshot isolation only detects write-write conflicts on the same rows, so
+    it is not equivalent to serializable execution. Write skew, where
+    transactions update different rows based on overlapping reads, is still
+    possible. Serializable snapshot isolation or explicit locking is needed.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["write skew", "not serializable", "different rows", "serializable", "write-write"]
+  rubric: |
+    identified: says snapshot isolation is not serializable and permits write
+      skew because it only detects conflicts on the same rows.
+    partial: says the serializable-equivalence claim is wrong without naming
+      write skew as the surviving anomaly, or vice versa.
+    missed: does not challenge the claim.

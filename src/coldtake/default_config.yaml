@@ -1,0 +1,57 @@
+# coldtake default configuration. Copy to ~/.config/coldtake/config.yaml (or point
+# COLDTAKE_CONFIG at a file) and edit; your file is merged over these defaults.
+
+# auto: detect the calling agent from the MCP client name.
+# Or force one of: anthropic, openai, other.
+lead_family: auto
+
+# Where run state lives. Defaults to the XDG state directory.
+state_dir: null
+
+# Binary paths for the CLIs. null means "look it up on PATH".
+binaries:
+  claude: null
+  codex: null
+  gemini: null
+
+# Subscription routes: one per model family, run through the logged-in CLIs.
+# model null means "the CLI's own default model".
+subscription:
+  anthropic: {provider: claude, model: opus, effort: high}
+  openai: {provider: codex, model: null, effort: high}
+  google: {provider: gemini, model: null, effort: null}
+
+# Optional paid fallback. Off unless OPENROUTER_API_KEY is set in the environment.
+# Prices are USD per million tokens and are sent as hard ceilings (provider.max_price).
+# Review them against the provider's current pricing before relying on them.
+openrouter:
+  base_url: https://openrouter.ai/api/v1
+  models:
+    - model: google/gemini-3.7-flash
+      family: google
+      prompt_usd_per_mtok: 0.75
+      completion_usd_per_mtok: 3.75
+      max_output_tokens: 16000
+      structured_outputs: true
+    - model: z-ai/glm-5.3
+      family: z-ai
+      prompt_usd_per_mtok: 0.22
+      completion_usd_per_mtok: 3.39
+      max_output_tokens: 16000
+      structured_outputs: true
+
+budget:
+  per_request_usd: 1.0
+  daily_usd: 5.0
+
+panel:
+  max_members: 3
+  max_paid_members: 1
+
+limits:
+  max_prompt_bytes: 200000
+  attempt_seconds: 600     # one CLI or HTTP attempt
+  job_seconds: 1500        # all advisor attempts of one job
+  judge_seconds: 600       # the comparison step
+  lease_seconds: 60        # liveness lease of a running job
+  block_seconds: 900       # how long the blocking tools wait before returning "running"

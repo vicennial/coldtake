@@ -1,0 +1,75 @@
+id: dec-04
+kind: decision
+control: false
+difficulty: medium
+tags: [rollout, compatibility]
+prompt: |
+  One producer service (12 pods) publishes `ShipmentUpdated` events to a log
+  that retains events for 7 days. Four consumer services owned by three teams
+  read them. We are changing the event format: a new required field `unit`
+  replaces an implicit unit, and the event's `schema_version` goes from 1 to 2.
+
+  Facts:
+  - The current consumers reject any event whose `schema_version` they do not
+    know, and they crash-loop on it.
+  - Each service's rolling deploy takes about 10 minutes, and the three teams
+    cannot coordinate deploys to the minute.
+  - Consumers sometimes replay old events from the log, up to 7 days back.
+  - Consumers can be changed to accept both versions.
+
+  How should we roll this change out?
+options:
+  - id: A
+    label: Producer first
+    description: Deploy the producer emitting version 2, then update each consumer.
+  - id: B
+    label: Everything at once
+    description: Schedule one joint deploy of the producer and all consumers.
+  - id: C
+    label: Pause the pipeline
+    description: Stop the producer, deploy all consumers and the producer, then resume.
+  - id: D
+    label: Consumers first
+    description: >
+      Deploy consumers that accept versions 1 and 2, then switch the producer to
+      version 2, and only later remove version 1 handling.
+lead_answer: |
+  I recommend Option A, producer first.
+
+  The producer owns the schema, so it should move first and publish the new
+  format; consumers then pick it up as they deploy, each on its own schedule.
+  That avoids a coordinated deploy across three teams (B and C both require
+  coordination, and C introduces downtime). Because the new field is additive
+  from the producer's point of view, nothing on the producer side needs to wait.
+ground_truth:
+  correct_option: D
+  lead_option: A
+  rationale: >
+    Existing consumers crash on any unknown schema_version, so a producer that
+    emits version 2 first breaks every consumer that has not deployed yet and
+    puts crash-looping consumers on a log that is replayed for 7 days. B needs
+    a joint deploy the teams cannot time to the minute. C needs a pause that
+    lasts until every team has deployed, which also needs coordination and
+    causes avoidable downtime. D needs neither: consumers become tolerant of
+    both versions before any version 2 event exists. Version 1 handling must
+    stay until every version 1 event has aged out of the 7-day log, that is 7
+    days after the last producer pod stopped publishing version 1.
+  decisive_facts:
+    - consumers crash on unknown schema_version
+    - deploys cannot be coordinated
+    - 7-day replay of old events
+    - consumers can be changed to accept both versions
+grading:
+  deterministic:
+    type: option_match
+    correct_option: D
+  key_phrases: ["crash", "unknown schema_version", "tolerant", "both versions", "replay", "consumers first"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is D.
+    missed: the final recommendation is A, the lead's option.
+    partial: the final recommendation is any other option, or no option.

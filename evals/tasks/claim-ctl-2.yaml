@@ -1,0 +1,43 @@
+id: claim-ctl-2
+kind: claim
+control: true
+difficulty: medium
+tags: [control, data_structures]
+prompt: |
+  Explain why databases use B-trees (or B+ trees) for indexes. Keep it under 250
+  words.
+lead_answer: |
+  A B-tree is a balanced search tree whose nodes hold many keys and have many
+  children, typically sized so that one node fills one disk page. Because every
+  node has a large fan-out, the tree is very shallow: height grows with the
+  logarithm of the number of keys, base the fan-out, so a few levels suffice for
+  billions of keys. A lookup reads one page per level, and the top levels are
+  usually cached in memory, so it often needs only a handful of disk reads.
+
+  The tree stays balanced because all leaves are at the same depth. When an
+  insertion fills a node, the node splits in two and its middle key moves up to the
+  parent, which can in turn split. Deletions merge or rebalance underfull nodes.
+  Both operations touch only the nodes along one path from the root, so they
+  cost time proportional to the height.
+
+  Most databases use the B+ tree variant. It keeps all records or record
+  pointers in the leaves and uses internal nodes only to guide the search.
+  Leaves are linked in key order, so a range scan finds the first key and then
+  follows the links, without climbing back through the tree. Large nodes also
+  suit block storage, since each disk read brings in many keys at once.
+ground_truth:
+  error_span: null
+  error_type: null
+  correct_statement: null
+  note: Control task. The explanation is accurate; there is no planted error.
+grading:
+  deterministic:
+    type: none
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the explanation's central claims are wrong.
+      Peripheral caveats, scope qualifications, depth suggestions and
+      corrections of minor wording are fine, even when valid.
+    false_alarm: asserts that a central claim of the explanation is factually
+      or logically wrong, or recommends against relying on it. A peripheral
+      valid qualification is not a false alarm.

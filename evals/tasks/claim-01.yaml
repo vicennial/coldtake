@@ -1,0 +1,46 @@
+id: claim-01
+kind: claim
+control: false
+difficulty: hard
+tags: [networking, tcp]
+prompt: |
+  Explain how classic TCP Reno reacts to packet loss and why it treats different
+  kinds of loss differently. Keep it under 250 words.
+lead_answer: |
+  TCP limits how much unacknowledged data may be in flight with a congestion
+  window, cwnd. A new connection begins in slow start, where cwnd grows by one
+  segment for each acknowledgment received, so it roughly doubles every round
+  trip. When cwnd reaches the slow-start threshold, ssthresh, the sender
+  switches to congestion avoidance and grows cwnd by about one segment per round
+  trip.
+
+  Loss is the signal to slow down, and Reno reads two kinds of evidence. When the
+  sender sees three duplicate acknowledgments, it infers that one segment was
+  lost while later segments still arrived, so the network is still delivering
+  data. Reno retransmits the missing segment, sets ssthresh to half of the data in
+  flight, reduces cwnd to roughly that value and continues in fast recovery.
+
+  When the retransmission timer expires, the evidence is worse, since nothing
+  is getting acknowledged. Reno then halves cwnd as well and stays in congestion
+  avoidance, because a timeout shows that the path is still delivering some
+  packets. Reacting to both signals in the same mild way keeps throughput high
+  on lossy links.
+ground_truth:
+  error_span: "Reno then halves cwnd as well and stays in congestion avoidance, because a timeout shows that the path is still delivering some packets."
+  error_type: factual
+  correct_statement: >
+    On a retransmission timeout, Reno sets ssthresh to half the data in flight
+    but resets cwnd to one segment and returns to slow start. Only triple
+    duplicate ACKs get the milder halving and fast recovery.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["timeout", "cwnd to one segment", "slow start", "one segment", "1 MSS", "loss window"]
+  rubric: |
+    identified: says that after a retransmission timeout Reno collapses cwnd to
+      one segment (and re-enters slow start), not halving and staying in
+      congestion avoidance.
+    partial: says the timeout handling is wrong or milder than reality without
+      stating cwnd resets to one segment / slow start.
+    missed: does not challenge the timeout paragraph, or challenges a different
+      correct statement.

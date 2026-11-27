@@ -1,0 +1,109 @@
+id: code-05
+kind: code
+control: false
+difficulty: hard
+tags: [race, double_checked_locking]
+prompt: |
+  Write a Python module `solution.py` with a thread-safe class
+  `TokenProvider(refresh, clock=time.monotonic)`.
+
+  - `refresh()` is an expensive call that returns `(token, ttl_seconds)`. You
+    may assume `ttl_seconds` is positive and long enough that a fresh token is
+    still valid when the threads that waited for it resume.
+  - `get()` returns a valid token. It calls `refresh()` when there is no token
+    yet or the current token has expired (`clock() >= expires_at`, where
+    `expires_at = clock() + ttl` measured right after the refresh).
+  - When many threads find the token missing or expired at the same time,
+    `refresh()` must run only once; the other threads wait and reuse the new
+    token.
+  - Do not hold the lock when the token is still valid, so readers of a fresh
+    token do not queue behind each other.
+lead_answer: |
+  """Token provider that refreshes an expiring credential."""
+  import threading
+  import time
+  from typing import Callable, Optional, Tuple
+
+
+  class TokenProvider:
+      """Return a cached token, refreshing it when it expires."""
+
+      def __init__(
+          self,
+          refresh: Callable[[], Tuple[str, float]],
+          clock: Callable[[], float] = time.monotonic,
+      ) -> None:
+          self._refresh = refresh
+          self._clock = clock
+          self._token: Optional[str] = None
+          self._expires_at = 0.0
+          self._lock = threading.Lock()
+
+      def _needs_refresh(self) -> bool:
+          return self._token is None or self._clock() >= self._expires_at
+
+      def get(self) -> str:
+          """Return a valid token, refreshing if necessary."""
+          if self._needs_refresh():
+              with self._lock:
+                  token, ttl = self._refresh()
+                  self._token = token
+                  self._expires_at = self._clock() + ttl
+          assert self._token is not None
+          return self._token
+reference_fix: |
+  """Token provider that refreshes an expiring credential."""
+  import threading
+  import time
+  from typing import Callable, Optional, Tuple
+
+
+  class TokenProvider:
+      """Return a cached token, refreshing it when it expires."""
+
+      def __init__(
+          self,
+          refresh: Callable[[], Tuple[str, float]],
+          clock: Callable[[], float] = time.monotonic,
+      ) -> None:
+          self._refresh = refresh
+          self._clock = clock
+          self._token: Optional[str] = None
+          self._expires_at = 0.0
+          self._lock = threading.Lock()
+
+      def _needs_refresh(self) -> bool:
+          return self._token is None or self._clock() >= self._expires_at
+
+      def get(self) -> str:
+          """Return a valid token, refreshing if necessary."""
+          if self._needs_refresh():
+              with self._lock:
+                  if self._needs_refresh():  # another thread may have refreshed
+                      token, ttl = self._refresh()
+                      self._token = token
+                      self._expires_at = self._clock() + ttl
+          assert self._token is not None
+          return self._token
+ground_truth:
+  defect_type: race
+  location: "TokenProvider.get(): no re-check of _needs_refresh() after acquiring the lock"
+  description: >
+    Classic double-checked locking without the second check. Threads that found
+    the token expired queue on the lock and each then calls refresh() in turn,
+    so N concurrent callers produce N refreshes instead of one. The lock only
+    serialises the refreshes; it does not deduplicate them.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_05.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["double-checked", "re-check", "recheck", "after acquiring", "refresh() twice", "stampede", "N refreshes"]
+  rubric: |
+    identified: says the expiry condition must be re-checked after acquiring the
+      lock, otherwise each waiting thread refreshes again (multiple refreshes
+      under concurrency).
+    partial: flags a concurrency problem in get() (e.g. unlocked fast path, or
+      "thundering herd") without identifying the missing re-check as the cause.
+    missed: says the locking is correct, or flags only unrelated issues.

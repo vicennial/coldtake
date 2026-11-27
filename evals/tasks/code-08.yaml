@@ -1,0 +1,80 @@
+id: code-08
+kind: code
+control: false
+difficulty: hard
+tags: [security, path_traversal]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `safe_join(base, user_path)` for a file-serving endpoint.
+
+  - Return the absolute, fully resolved path (symlinks resolved) of `user_path`
+    interpreted relative to the directory `base`, as a `str`. Assume a POSIX
+    system and no symlink loops.
+  - Raise `ValueError` unless the resolved result is inside `base` or equal to
+    `base` (equal to `base` is accepted). Acceptance depends only on where the path resolves: `a/../b` is
+    fine, `../x` is not; an absolute `user_path` is accepted only when it lies
+    inside `base`; a symlink that points outside `base` is rejected.
+  - `base` may be any existing directory, including the file-system root.
+  - The target does not need to exist.
+lead_answer: |
+  """Resolve user-supplied paths inside a base directory."""
+  import os
+
+
+  def safe_join(base: str, user_path: str) -> str:
+      """Join ``user_path`` onto ``base`` and make sure it stays inside ``base``.
+
+      Returns the resolved absolute path or raises ``ValueError``.
+      """
+      base_real = os.path.realpath(base)
+      candidate = os.path.realpath(os.path.join(base_real, user_path))
+
+      if not candidate.startswith(base_real):
+          raise ValueError("path escapes the base directory: %r" % user_path)
+
+      return candidate
+reference_fix: |
+  """Resolve user-supplied paths inside a base directory."""
+  import os
+
+
+  def safe_join(base: str, user_path: str) -> str:
+      """Join ``user_path`` onto ``base`` and make sure it stays inside ``base``.
+
+      Returns the resolved absolute path or raises ``ValueError``.
+      """
+      base_real = os.path.realpath(base)
+      candidate = os.path.realpath(os.path.join(base_real, user_path))
+
+      if os.path.commonpath([base_real, candidate]) != base_real:
+          raise ValueError("path escapes the base directory: %r" % user_path)
+
+      return candidate
+ground_truth:
+  defect_type: path_traversal
+  location: "safe_join(): `candidate.startswith(base_real)` containment check"
+  description: >
+    A plain string-prefix test accepts sibling directories that share the base
+    directory's name as a prefix. With base /srv/data, the path
+    ../data-private/secret.txt resolves to /srv/data-private/secret.txt, which
+    starts with "/srv/data" and is wrongly accepted. The check must compare
+    path components (os.path.commonpath / Path.is_relative_to); appending
+    os.sep to the base is also fine except for a root base, where it doubles
+    the separator.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_08.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["startswith", "prefix", "sibling", "os.sep", "commonpath", "is_relative_to", "data-private"]
+  rubric: |
+    identified: says the startswith containment check is a string-prefix test
+      that accepts sibling directories whose names begin with the base name, and
+      the fix is to compare whole path components (a separator boundary, or
+      commonpath/is_relative_to) while still accepting `base` itself and a root
+      base.
+    partial: says the path-containment check is weak or bypassable, or mentions
+      traversal in general terms, without identifying the sibling-prefix case.
+    missed: says the traversal protection is correct, or only flags unrelated
+      issues.

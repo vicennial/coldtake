@@ -1,0 +1,87 @@
+id: code-09
+kind: code
+control: false
+difficulty: medium
+tags: [security, path_traversal, upload]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `store_upload(root, filename, data)` that saves uploaded bytes under the
+  directory `root` and returns the path written.
+
+  - `filename` is client supplied and may contain sub-directories
+    (`"reports/2024/q1.csv"`); create missing directories under `root`.
+  - Never write outside `root`. Reject with `ValueError`, before touching the
+    file system, any name that is empty, is an absolute path (it starts with a
+    path separator), or contains a `..` path segment. Clients may be on
+    Windows, so treat both `/` and `\` as path separators when you check a
+    name.
+  - You may assume a POSIX server (drive letters are not special) and that
+    nothing under `root` is a symbolic link.
+  - Overwrite an existing file of the same name.
+lead_answer: |
+  """Store client uploads under a fixed root directory."""
+  import os
+
+
+  def store_upload(root: str, filename: str, data: bytes) -> str:
+      """Write ``data`` to ``root/filename`` and return the resulting path."""
+      if not filename:
+          raise ValueError("empty file name")
+
+      # Reject parent-directory segments in either separator style.
+      parts = filename.replace("\\", "/").split("/")
+      if ".." in parts:
+          raise ValueError("parent directory segments are not allowed")
+
+      target = os.path.join(root, filename)
+      os.makedirs(os.path.dirname(target), exist_ok=True)
+      with open(target, "wb") as fh:
+          fh.write(data)
+      return target
+reference_fix: |
+  """Store client uploads under a fixed root directory."""
+  import os
+
+
+  def store_upload(root: str, filename: str, data: bytes) -> str:
+      """Write ``data`` to ``root/filename`` and return the resulting path."""
+      if not filename:
+          raise ValueError("empty file name")
+
+      normalized = filename.replace("\\", "/")
+      if normalized.startswith("/") or os.path.isabs(filename):
+          raise ValueError("absolute paths are not allowed")
+
+      # Reject parent-directory segments in either separator style.
+      parts = normalized.split("/")
+      if ".." in parts:
+          raise ValueError("parent directory segments are not allowed")
+
+      target = os.path.join(root, filename)
+      os.makedirs(os.path.dirname(target), exist_ok=True)
+      with open(target, "wb") as fh:
+          fh.write(data)
+      return target
+ground_truth:
+  defect_type: path_traversal
+  location: "store_upload(): no rejection of absolute `filename`"
+  description: >
+    The ".." segment check is fine, but os.path.join(root, filename) discards
+    root when filename is absolute, so a client-supplied "/tmp/x/evil.txt" is
+    written to that absolute location outside root. The spec requires absolute
+    names to be rejected before any file system access. (The prompt tells the
+    author to treat `/` and `\` as separators and to assume no symlinks under
+    root, so link handling is out of scope.)
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_09.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["absolute", "os.path.join", "isabs", "discards", "ignores root", "leading slash"]
+  rubric: |
+    identified: says os.path.join ignores `root` when `filename` is absolute so
+      absolute names escape root, and the function must reject absolute paths.
+    partial: flags path traversal / escaping root in general (e.g. symlinks,
+      encoded dots) without the absolute-path case.
+    missed: says the validation is complete, or only flags unrelated issues.

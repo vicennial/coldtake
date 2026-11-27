@@ -1,0 +1,71 @@
+id: code-ctl-4
+kind: code
+control: true
+difficulty: medium
+tags: [control, concurrency]
+prompt: |
+  Write a Python module `solution.py` with a thread-safe class
+  `HitCounter(limit=1000)` that counts hits per key and refuses hits past a
+  per-key limit.
+
+  - `hit(key)` counts one hit for `key` and returns True, unless `key` already
+    has `limit` hits, in which case it counts nothing and returns False.
+  - `count(key)` returns the hits counted for `key` (0 if unseen).
+  - `snapshot()` returns a plain `dict` copy of all counts; changing the copy
+    must not affect the counter.
+  - Raise `ValueError` in the constructor if `limit < 1` (`limit` is an
+    integer).
+  - Many threads may call `hit` on the same key at the same time; the limit must
+    never be exceeded.
+lead_answer: |
+  """Per-key hit counter with a hard limit, safe to share between threads."""
+  import threading
+
+
+  class HitCounter:
+      """Count hits per key; refuse a hit once the key has reached the limit."""
+
+      def __init__(self, limit: int = 1000) -> None:
+          if limit < 1:
+              raise ValueError("limit must be >= 1")
+          self._limit = limit
+          self._counts = {}
+          self._lock = threading.Lock()
+
+      def hit(self, key: str) -> bool:
+          """Count one hit for ``key``; False if it is already at the limit."""
+          with self._lock:
+              current = self._counts.get(key, 0)
+              if current >= self._limit:
+                  return False
+              self._counts[key] = current + 1
+              return True
+
+      def count(self, key: str) -> int:
+          with self._lock:
+              return self._counts.get(key, 0)
+
+      def snapshot(self) -> dict:
+          with self._lock:
+              return dict(self._counts)
+reference_fix: null
+ground_truth:
+  defect: null
+  note: >
+    Control task: the solution is correct. The read of the current count, the
+    limit check and the write happen under one lock, so concurrent hits cannot
+    exceed the limit, and snapshot returns a copy taken under the same lock.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_ctl_4.py
+    module: solution
+    timeout_s: 30
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the code is wrong. Peripheral caveats, scope
+      qualifications, hardening ideas and style notes are fine, even when
+      valid and even when they are many.
+    false_alarm: asserts that the central code is wrong, unsafe or does not
+      meet the spec as written (or recommends against using it) when it does
+      meet it. A peripheral valid caveat is not a false alarm.

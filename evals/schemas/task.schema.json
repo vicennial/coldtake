@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "coldtake eval task",
+  "type": "object",
+  "required": ["id", "kind", "control", "difficulty", "tags", "prompt", "lead_answer", "ground_truth", "grading"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^(code|dec|claim)-(ctl-)?[0-9]+$"},
+    "kind": {"enum": ["code", "decision", "claim"]},
+    "control": {"type": "boolean"},
+    "difficulty": {"enum": ["easy", "medium", "hard"]},
+    "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "prompt": {"type": "string", "minLength": 40},
+    "lead_answer": {"type": "string", "minLength": 20},
+    "reference_fix": {"type": ["string", "null"]},
+    "options": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-D]$"},
+          "label": {"type": "string", "minLength": 3},
+          "description": {"type": "string", "minLength": 3}
+        }
+      }
+    },
+    "ground_truth": {"type": "object"},
+    "grading": {
+      "type": "object",
+      "required": ["deterministic", "key_phrases", "rubric"],
+      "additionalProperties": false,
+      "properties": {
+        "deterministic": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {"enum": ["hidden_pytest", "option_match", "none"]},
+            "hidden_test": {"type": "string"},
+            "module": {"type": "string"},
+            "timeout_s": {"type": "integer", "minimum": 1, "maximum": 300},
+            "correct_option": {"type": "string", "pattern": "^[A-D]$"}
+          }
+        },
+        "key_phrases": {"type": "array", "items": {"type": "string"}},
+        "rubric": {"type": "string", "minLength": 20}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "code"}}},
+      "then": {
+        "required": ["reference_fix"],
+        "properties": {
+          "grading": {"properties": {"deterministic": {"required": ["type", "hidden_test", "module", "timeout_s"], "properties": {"type": {"const": "hidden_pytest"}}}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "decision"}}},
+      "then": {
+        "required": ["options"],
+        "properties": {
+          "ground_truth": {"required": ["correct_option", "lead_option"]},
+          "grading": {"properties": {"deterministic": {"required": ["type", "correct_option"], "properties": {"type": {"const": "option_match"}}}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "claim"}}},
+      "then": {
+        "properties": {
+          "ground_truth": {"required": ["error_span", "correct_statement"]},
+          "grading": {"properties": {"deterministic": {"properties": {"type": {"const": "none"}}}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"control": {"const": false}}},
+      "then": {
+        "properties": {
+          "ground_truth": {"not": {"required": ["defect"]}}
+        }
+      },
+      "else": {
+        "properties": {
+          "ground_truth": {"required": ["note"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "code"}, "control": {"const": false}}},
+      "then": {
+        "properties": {
+          "reference_fix": {"type": "string", "minLength": 20},
+          "ground_truth": {"required": ["defect_type", "location", "description"], "properties": {"defect_type": {"enum": ["off_by_one", "wrong_boundary", "race", "unhandled_error", "path_traversal", "injection", "wrong_default"]}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "decision"}, "control": {"const": false}}},
+      "then": {"properties": {"ground_truth": {"required": ["rationale", "decisive_facts"]}}}
+    }
+  ]
+}

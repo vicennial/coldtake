@@ -1,0 +1,86 @@
+id: dec-02
+kind: decision
+control: false
+difficulty: medium
+tags: [caching, capacity]
+prompt: |
+  A product-page service handles 200,000 read requests per second for prices.
+  About 50,000 SKUs receive nearly all of that traffic, spread roughly evenly
+  across them (about 4 requests per second per SKU); all other SKUs add
+  negligible load. The price database sustains 2,000 reads per second before
+  latency degrades. Prices are changed by a single pricing service, about 5
+  updates per second. Pricing policy requires that a changed price is visible
+  to shoppers within 5 seconds.
+
+  We can add at most 3 read replicas, and each adds 2,000 reads per second. The
+  pricing service publishes an event after each committed update; the event
+  bus delivers it to the cache layer within about a second and retries until
+  the cache layer acknowledges it. Every price carries a version number that
+  grows with each update, and the cache layer can delete a single key on
+  demand and can refuse to store a price older than the version it last saw
+  for that key. A cache miss reads the price from the primary database.
+
+  Which caching strategy should we use?
+options:
+  - id: A
+    label: Cache-aside, 5-second TTL
+    description: Cache every price for 5 seconds and let entries expire on their own.
+  - id: B
+    label: Cache-aside, 10-minute TTL only
+    description: Cache every price for 10 minutes with no explicit invalidation.
+  - id: C
+    label: Event-driven invalidation plus long TTL
+    description: >
+      Cache with a 10-minute TTL as a safety net, and delete a SKU's key when
+      the pricing service publishes an update event for it, recording the
+      event's version so that a read that started before the update cannot
+      store the older price afterwards.
+  - id: D
+    label: No cache, add replicas
+    description: Add 3 read replicas and send all reads to the database tier.
+lead_answer: |
+  I recommend Option A, a 5-second TTL.
+
+  It is the simplest option that meets the policy: a price can never be more than
+  5 seconds old, so we do not need to build or operate any invalidation pipeline.
+  Event-driven invalidation (C) adds a new failure mode, since a lost event means
+  a stale price, and the policy is strict. B clearly violates the 5-second rule.
+  D cannot cover the load either way. With a 5-second TTL the hot set is served
+  from cache almost all the time, so the database sees only a small fraction of
+  the 200,000 requests per second.
+ground_truth:
+  correct_option: C
+  lead_option: A
+  rationale: >
+    With 50,000 hot keys at about 4 requests per second each, a 5-second TTL
+    means each key is refilled once per roughly 5.25 seconds (5 seconds of
+    life plus about 0.25 seconds until the next request), so the database sees
+    about 50,000 / 5.25 = 9,500 reads per second. That is nearly five times the
+    2,000 the primary sustains and more than the 8,000 available even if all
+    three replicas served those misses. B violates the freshness policy. D gives
+    at most 2,000 + 3 x 2,000 = 8,000 reads per second, far below 200,000. C
+    needs about 50,000 / 600 = 83 refills per second plus 5 invalidation-driven
+    refills per second, well inside the database limit, and because the event
+    bus delivers within about a second and retries until acknowledged, and
+    version checking stops a read that started before the update from
+    refilling the key with the old price after the delete, a price change leaves
+    the cache well within the 5-second policy.
+  decisive_facts:
+    - 50,000 hot SKUs
+    - database limit of 2,000 reads per second
+    - 5-second freshness requirement
+    - event publishing and key deletion are available
+grading:
+  deterministic:
+    type: option_match
+    correct_option: C
+  key_phrases: ["9,500", "50,000", "5 seconds", "2,000", "miss", "refill", "overload"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is C.
+    missed: the final recommendation is A, the lead's option.
+    partial: the final recommendation is any other option, or no option.

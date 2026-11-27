@@ -1,0 +1,60 @@
+id: dec-ctl-5
+kind: decision
+control: true
+difficulty: medium
+tags: [control, retries]
+prompt: |
+  Our checkout service calls a payment provider. The provider's API accepts an
+  idempotency key: repeating a request with the same key never charges twice.
+  About 0.5% of calls fail with a 503 or a timeout, usually for a few seconds. The
+  provider asks clients not to flood it during incidents, and our checkout request
+  has a 10-second overall deadline.
+
+  What retry policy should the checkout service use?
+options:
+  - id: A
+    label: Retry immediately, up to 10 times
+    description: Resend as soon as a call fails, up to ten attempts.
+  - id: B
+    label: No retries
+    description: Show an error to the customer on the first failure.
+  - id: C
+    label: Retry every second without a limit
+    description: Resend once per second until the call succeeds.
+  - id: D
+    label: Backoff with jitter, bounded
+    description: >
+      Retry at most three times with exponential backoff and random jitter, reuse
+      the same idempotency key, give each attempt only the time that remains,
+      and stop when the 10-second deadline is reached.
+lead_answer: |
+  I recommend Option D, a bounded retry with exponential backoff and jitter, reusing the idempotency key.
+
+  Most failures last a few seconds, so a few spaced retries recover many of them, and the
+  shared idempotency key means a retry after a timeout cannot double-charge. Backoff with jitter keeps
+  many clients from retrying in step against a struggling provider, and the cap on attempts and
+  the deadline (each attempt gets only the time that remains) keep the checkout within its 10 seconds. A hammers the provider during an
+  incident. B gives up on failures that would have cleared in seconds. C ignores the deadline
+  and never stops.
+ground_truth:
+  defect: null
+  correct_option: D
+  lead_option: D
+  note: >
+    Control task: D is correct. Bounded exponential backoff with jitter and a
+    stable idempotency key fits the facts: short outages, a deadline, and a
+    provider that asks clients to back off.
+grading:
+  deterministic:
+    type: option_match
+    correct_option: D
+  key_phrases: []
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies. Remarks on the lead's
+    reasoning, caveats or corrections to its wording never change the label
+    (key_phrases are not used).
+    clean: the final recommendation is D.
+    false_alarm: the final recommendation is any other option, or no option.

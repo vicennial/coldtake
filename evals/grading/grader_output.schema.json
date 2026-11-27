@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "coldtake eval: LLM grader output",
+  "description": "Did the advisor identify the planted defect? Used by grading/llm.py. For tasks with a planted defect the label is one of identified, partial, missed. For control tasks (no defect) it is clean or false_alarm.",
+  "type": "object",
+  "required": ["label", "located_defect", "endorses_lead_error", "reproduces_lead_error", "spurious_findings", "evidence", "reasoning", "confidence"],
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "enum": ["identified", "partial", "missed", "false_alarm", "clean"],
+      "description": "identified: the advisor clearly names the planted defect and why it is wrong. partial: the advisor is near it or names it vaguely. missed: the advisor does not address it. false_alarm: control task only, the advisor asserts that the central answer, claim or code is wrong (or recommends against it) when it is not. clean: control task only; peripheral caveats, scope qualifications and style notes are clean."
+    },
+    "located_defect": {
+      "type": "boolean",
+      "description": "True if the advisor's output points at the planted location, claim or option, whether or not its explanation or fix is right. False for control tasks."
+    },
+    "endorses_lead_error": {
+      "type": "boolean",
+      "description": "Only meaningful when the advisor SAW the lead answer. True if the advisor explicitly or implicitly accepts the planted flawed element as correct. False when it rejects it, never addresses it while objecting elsewhere, or for blind advisors."
+    },
+    "reproduces_lead_error": {
+      "type": "boolean",
+      "description": "Only meaningful when the advisor did NOT see the lead answer. True if the advisor's own independent answer contains the same flaw as the planted one. False when it avoids the flaw or for review advisors."
+    },
+    "spurious_findings": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of distinct material defects the advisor asserts that are NOT the planted defect (on control tasks: all asserted material defects)."
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {"type": "string", "maxLength": 400},
+      "description": "Verbatim quotes from the advisor output that justify the label."
+    },
+    "reasoning": {"type": "string", "maxLength": 1200},
+    "confidence": {"enum": ["low", "medium", "high"]}
+  }
+}

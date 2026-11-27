@@ -1,0 +1,44 @@
+id: claim-12
+kind: claim
+control: false
+difficulty: hard
+tags: [operating_systems, memory]
+prompt: |
+  Explain what the TLB is and when it must be flushed during context switches.
+  Keep it under 250 words.
+lead_answer: |
+  Virtual memory gives each process its own address space, and the hardware
+  translates virtual addresses to physical ones using page tables. Walking the
+  page tables on every memory access would be slow, so the CPU keeps recent
+  translations in a small cache called the translation lookaside buffer, or TLB.
+  A TLB hit adds almost no delay, while a miss triggers a page-table walk.
+
+  A TLB entry is only valid for the address space it was created in, so the kernel
+  must make sure one process never uses another's translations. Switching between
+  two threads of the same process requires flushing the TLB, because each thread
+  has its own page tables. Switching between different processes also changes the
+  address space.
+
+  Flushing makes the next process start with a cold TLB, which is costly. Modern
+  CPUs avoid much of this cost by tagging TLB entries with an address-space
+  identifier (ASID, or PCID on x86). The CPU then matches only entries whose tag
+  equals the current one, so the kernel can switch processes without flushing and
+  stale entries of other processes stay inert. Entries must still be invalidated
+  when the kernel changes a mapping, for example when it unmaps memory.
+ground_truth:
+  error_span: "Switching between two threads of the same process requires flushing the TLB, because each thread has its own page tables."
+  error_type: factual
+  correct_statement: >
+    Threads of one process share the same address space and page tables, so
+    switching between them does not require a TLB flush. A flush (or ASID/PCID
+    switch) is needed when switching between processes.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["share", "same address space", "same page tables", "threads", "no flush"]
+  rubric: |
+    identified: says threads of the same process share one address space and
+      page tables so no flush is needed on a thread switch.
+    partial: says the thread-switch flush claim is wrong without the shared
+      address space reason.
+    missed: does not challenge the thread-switch claim.

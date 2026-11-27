@@ -1,0 +1,45 @@
+id: claim-11
+kind: claim
+control: false
+difficulty: medium
+tags: [data_structures, probabilistic]
+prompt: |
+  Explain how a standard Bloom filter works, including whether elements can be
+  removed. Keep it under 250 words.
+lead_answer: |
+  A Bloom filter is a compact set structure made of a bit array of m bits and k
+  independent hash functions. To add an element, you compute its k hash values and
+  set the corresponding bits to 1. To test membership, you check the same k bits.
+  If any of them is 0, the element is definitely not in the set. If all are 1,
+  the element is probably in the set, but it might be a false positive caused by
+  other elements having set those bits. A standard Bloom filter never produces
+  false negatives for elements that were added.
+
+  The false-positive rate grows as more elements are added. For a given m and
+  number of elements n, it is minimized when k is about (m/n) times ln 2. In
+  exchange for allowing false positives, the filter needs far less memory than
+  storing the elements themselves.
+
+  To remove an element, simply clear its k bits. This is safe because every bit
+  in the array was set by exactly one element, so clearing them affects nothing
+  else.
+
+  Bloom filters are used as a cheap pre-check in front of expensive lookups, such
+  as a disk read, to skip lookups for keys that are certainly absent.
+ground_truth:
+  error_span: "To remove an element, simply clear its k bits. This is safe because every bit in the array was set by exactly one element, so clearing them affects nothing else."
+  error_type: logical
+  correct_statement: >
+    Bits are shared between elements. Clearing an element's bits can clear bits
+    that other elements also set, causing false negatives for them. A standard
+    Bloom filter does not support deletion; counting Bloom filters (counters
+    instead of bits) or rebuilding the filter are needed.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["shared", "false negative", "counting Bloom", "does not support deletion", "collide"]
+  rubric: |
+    identified: says bits are shared between elements so clearing them can cause
+      false negatives; standard Bloom filters do not support deletion.
+    partial: says deletion is unsafe/unsupported without the shared-bit reason.
+    missed: does not challenge the deletion statement.

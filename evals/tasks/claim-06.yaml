@@ -1,0 +1,51 @@
+id: claim-06
+kind: claim
+control: false
+difficulty: hard
+tags: [security, tls]
+prompt: |
+  Explain what forward secrecy is and how TLS 1.3 provides it. Keep it under 250
+  words.
+lead_answer: |
+  Forward secrecy means that if an attacker later steals a server's long-term
+  private key, they still cannot decrypt traffic that they recorded earlier. The
+  guarantee is about the past: compromising a key tomorrow must not expose
+  sessions from yesterday.
+
+  TLS 1.3 provides it by deriving session keys from the server's long-term
+  certificate key combined with a fresh random value from each side, so every
+  connection ends up with different keys. The client and server also run a
+  Diffie-Hellman exchange during the handshake. The server's certificate key
+  signs the handshake transcript, which lets the client authenticate the server
+  and detect an attacker who tampers with the exchange.
+
+  TLS 1.3 removed the older static RSA key exchange, in which the client
+  encrypted the session secret directly to the server's certificate key. That
+  mode lacked forward secrecy, because anyone who later obtained the key could
+  decrypt the recorded secret and with it the whole session. Removing it means
+  every certificate-authenticated TLS 1.3 handshake uses an ephemeral key exchange.
+
+  The trade-off is that servers performing the Diffie-Hellman exchange must
+  generate fresh key-exchange values for each connection, which costs some CPU, though modern elliptic-curve exchanges make
+  this inexpensive.
+ground_truth:
+  error_span: "deriving session keys from the server's long-term certificate key combined with a fresh random value from each side, so every connection ends up with different keys"
+  error_type: factual
+  correct_statement: >
+    Forward secrecy comes from ephemeral Diffie-Hellman keys generated fresh for
+    each handshake and discarded afterwards. Session keys derive from that
+    ephemeral shared secret (in the usual certificate-authenticated (EC)DHE
+    handshake). The long-term certificate key is used only to sign the
+    handshake. Deriving keys from the long-term key (plus nonces) would not
+    give forward secrecy, because compromising it would expose them.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["ephemeral", "Diffie-Hellman", "long-term key", "only to sign", "derived from"]
+  rubric: |
+    identified: says session keys must come from an ephemeral (EC)DHE secret and
+      that deriving them from the long-term certificate key would not give
+      forward secrecy (the long-term key only signs).
+    partial: says the derivation description is wrong or confused without naming
+      the ephemeral exchange as the source of secrecy.
+    missed: does not challenge the key-derivation claim.

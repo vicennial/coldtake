@@ -1,0 +1,48 @@
+id: claim-05
+kind: claim
+control: false
+difficulty: medium
+tags: [algorithms, sorting]
+prompt: |
+  Explain the time complexity of quicksort and how pivot choice affects it. Keep
+  it under 250 words.
+lead_answer: |
+  Quicksort picks a pivot, partitions the array into elements smaller and larger
+  than the pivot, and recursively sorts the two parts. When the pivot splits the
+  array into reasonably balanced parts, the recursion depth is about log n and
+  each level does O(n) work, giving O(n log n) on average.
+
+  The cost depends on the pivot. If the pivot is consistently the smallest or
+  largest element, one part is empty and the other holds all remaining items, so
+  the depth becomes n and the total work grows to O(n^2). Choosing the first
+  element as the pivot makes this happen on already sorted input, which is a
+  common case in practice.
+
+  A widely used remedy is median-of-three, which takes the median of the first,
+  middle and last elements as the pivot. This handles sorted and reverse-sorted
+  input well, and because the pivot is always a middle value of those three
+  elements, quicksort with median-of-three is guaranteed to run in O(n log n)
+  time in the worst case.
+
+  Other practical refinements include switching to insertion sort for very small
+  subarrays and recursing into the smaller partition while looping on the larger
+  one, so the stack depth stays O(log n).
+ground_truth:
+  error_span: "because the pivot is always a middle value of those three elements, quicksort with median-of-three is guaranteed to run in O(n log n) time in the worst case"
+  error_type: logical
+  correct_statement: >
+    Median-of-three only makes the common patterns (sorted, reverse sorted)
+    benign. Adversarial or unlucky inputs can still force O(n^2) behavior. A
+    worst-case O(n log n) guarantee needs something else, such as introsort's
+    fallback to heapsort or a worst-case linear-time median selection such as
+    median of medians.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["worst case", "O(n^2)", "adversarial", "introsort", "not guaranteed", "heapsort"]
+  rubric: |
+    identified: says median-of-three does not guarantee O(n log n) in the worst
+      case (adversarial inputs still give O(n^2)).
+    partial: says the guarantee is overstated without saying worst case remains
+      quadratic.
+    missed: does not challenge the guarantee or challenges only correct statements.

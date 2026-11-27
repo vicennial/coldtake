@@ -1,0 +1,42 @@
+id: claim-ctl-5
+kind: claim
+control: true
+difficulty: medium
+tags: [control, databases]
+prompt: |
+  Explain what the READ COMMITTED transaction isolation level guarantees and what
+  it does not. Keep it under 250 words.
+lead_answer: |
+  READ COMMITTED guarantees that a transaction never reads data that another transaction has
+  written but not yet committed. This rules out dirty reads. In snapshot-based
+  engines such as PostgreSQL, each statement sees the database as it was when that statement began,
+  including everything committed by then.
+
+  It does not give a stable view across a whole transaction. Because later statements can see
+  newer commits, reading the same row twice can return different values (a non-repeatable
+  read), and rerunning the same query can return a different set of rows (a phantom).
+
+  It also does not prevent lost updates in a read-modify-write sequence. If two transactions each
+  read a balance, add to it in application code and write the result back, one write can overwrite
+  the other. The usual remedies are an atomic statement such as `UPDATE ... SET balance =
+  balance + 10`, an explicit row lock with `SELECT ... FOR UPDATE`, or a stricter isolation level.
+
+  Exact behaviour differs between engines, so check the documentation of the database in use.
+  Only SERIALIZABLE promises that the outcome is equivalent to running the transactions one at a
+  time.
+ground_truth:
+  error_span: null
+  error_type: null
+  correct_statement: null
+  note: Control task. The explanation is accurate; there is no planted error.
+grading:
+  deterministic:
+    type: none
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the explanation's central claims are wrong.
+      Peripheral caveats, scope qualifications, depth suggestions and
+      corrections of minor wording are fine, even when valid.
+    false_alarm: asserts that a central claim of the explanation is factually
+      or logically wrong, or recommends against relying on it. A peripheral
+      valid qualification is not a false alarm.

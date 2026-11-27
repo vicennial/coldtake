@@ -1,0 +1,99 @@
+id: code-01
+kind: code
+control: false
+difficulty: easy
+tags: [off_by_one, pagination]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `paginate(items, page, per_page)` for a list endpoint.
+
+  - Pages are numbered from 1.
+  - Return a dict with the keys `items` (the slice for this page, as a list),
+    `page`, `per_page`, `total_items`, `total_pages` and `has_next`.
+  - `total_pages` is the number of pages needed to hold all items (0 when there
+    are no items). `has_next` is true only if a later page exists.
+  - A page past the end returns an empty `items` list.
+  - Raise `ValueError` if `page < 1` or `per_page < 1`.
+lead_answer: |
+  """Pagination helper for list endpoints."""
+  from typing import Any, Dict, Sequence
+
+
+  def paginate(items: Sequence[Any], page: int, per_page: int) -> Dict[str, Any]:
+      """Return one page of ``items``.
+
+      Pages are numbered from 1. A page past the end returns an empty list.
+      """
+      if page < 1:
+          raise ValueError("page must be >= 1")
+      if per_page < 1:
+          raise ValueError("per_page must be >= 1")
+
+      total_items = len(items)
+      total_pages = total_items // per_page + 1
+
+      start = (page - 1) * per_page
+      end = start + per_page
+
+      return {
+          "items": list(items[start:end]),
+          "page": page,
+          "per_page": per_page,
+          "total_items": total_items,
+          "total_pages": total_pages,
+          "has_next": page < total_pages,
+      }
+reference_fix: |
+  """Pagination helper for list endpoints."""
+  from typing import Any, Dict, Sequence
+
+
+  def paginate(items: Sequence[Any], page: int, per_page: int) -> Dict[str, Any]:
+      """Return one page of ``items``.
+
+      Pages are numbered from 1. A page past the end returns an empty list.
+      """
+      if page < 1:
+          raise ValueError("page must be >= 1")
+      if per_page < 1:
+          raise ValueError("per_page must be >= 1")
+
+      total_items = len(items)
+      total_pages = (total_items + per_page - 1) // per_page
+
+      start = (page - 1) * per_page
+      end = start + per_page
+
+      return {
+          "items": list(items[start:end]),
+          "page": page,
+          "per_page": per_page,
+          "total_items": total_items,
+          "total_pages": total_pages,
+          "has_next": page < total_pages,
+      }
+ground_truth:
+  defect_type: off_by_one
+  location: "paginate(): the `total_pages = total_items // per_page + 1` line"
+  description: >
+    total_pages uses floor division plus one instead of ceiling division. When
+    the item count is an exact multiple of per_page the result is one page too
+    many, so has_next is true on the real last page and an empty trailing page is
+    advertised. With no items total_pages is 1 instead of 0 (has_next stays
+    false for every valid page).
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_01.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["total_pages", "ceil", "multiple", "exact", "extra page", "// per_page + 1"]
+  rubric: |
+    identified: names the total_pages computation (floor division + 1) as wrong
+      and says it overcounts when total_items is a multiple of per_page or zero
+      (or proposes ceiling division).
+    partial: says pagination metadata (total_pages / has_next) looks wrong or
+      is off by one but does not pin it to the floor-plus-one formula or the
+      multiple-of-per_page case.
+    missed: does not flag total_pages / has_next, or only raises unrelated
+      style points.

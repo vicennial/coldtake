@@ -1,0 +1,67 @@
+id: dec-10
+kind: decision
+control: false
+difficulty: hard
+tags: [observability, sampling]
+prompt: |
+  A service handles 50,000 requests per second. The tracing backend can ingest
+  about 1,000 traces per second. About 0.05% of requests fail (roughly 25 per
+  second) and about 0.1% take longer than 1 second (roughly 50 per second).
+  On-call engineers need the traces of the failing and slow requests
+  specifically. Every request finishes within 30 seconds. The trace collector
+  can buffer all spans of a trace for up to 30 seconds, and it supports deciding
+  whether to keep a trace after the trace is complete.
+
+  Which sampling strategy should we use?
+options:
+  - id: A
+    label: Trace everything
+    description: Send every trace to the backend.
+  - id: B
+    label: Head sampling at 1%
+    description: Decide at the start of each request, keeping 1% at random.
+  - id: C
+    label: Tail-based sampling
+    description: >
+      Buffer each trace in the collector, keep all traces with an error or a
+      duration over 1 second, plus 1% of the rest.
+  - id: D
+    label: Logs only
+    description: Skip tracing and rely on request ids in logs.
+lead_answer: |
+  I recommend Option B, head sampling at 1%.
+
+  At 50,000 requests per second, 1% is 500 traces per second, comfortably under the
+  1,000-per-second backend limit with room for growth. Head sampling is cheap
+  and simple: the decision is made once, up front, so there is no buffering in the
+  collector. Sampling at random also gives an unbiased picture of overall latency. A
+  would exceed the budget by 50x, and logs alone lose the cross-service structure.
+ground_truth:
+  correct_option: C
+  lead_option: B
+  rationale: >
+    The need is to see failing and slow requests. Head sampling decides before
+    the outcome is known, so it keeps only 1% of errors and slow requests (about
+    0.25 and 0.5 per second), which makes the traces on-call needs nearly
+    unavailable. Tail sampling keeps all of them: at most 25 + 50 + about 500 = about 575
+    traces per second (fewer if errors and slow requests overlap), within the 1,000 limit, and the collector can buffer for
+    30 seconds. A is 50 times over budget. D loses the traces.
+  decisive_facts:
+    - on-call needs failing and slow requests specifically
+    - 25 errors and 50 slow requests per second
+    - backend limit of 1,000 traces per second
+    - collector can decide after the trace completes
+grading:
+  deterministic:
+    type: option_match
+    correct_option: C
+  key_phrases: ["head sampling", "before the outcome", "tail", "errors", "1%", "rare", "slow requests"]
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies and the explanation never
+    changes it (key_phrases are a logged hint, not a grading rule).
+    identified: the final recommendation is C.
+    missed: the final recommendation is B, the lead's option.
+    partial: the final recommendation is any other option, or no option.

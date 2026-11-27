@@ -1,0 +1,67 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.11" }
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: macos-latest, python: "3.13" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run test suite
+        run: uv run --extra dev pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run --extra dev ruff check src tests
+
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Build and verify coldtake & coldtake-omnigent wheels
+        run: |
+          uv build --out-dir dist
+          uv build integrations/omnigent --out-dir dist-omnigent
+          uvx twine check --strict dist/* dist-omnigent/*
+      - name: Smoke-test coldtake wheel in a clean venv
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/smoke"
+          uv pip install --python "$RUNNER_TEMP/smoke/bin/python" dist/*.whl dist-omnigent/*.whl
+          cd "$RUNNER_TEMP"
+          ct="$RUNNER_TEMP/smoke/bin/coldtake"
+          "$ct" --version
+          "$ct" try
+          "$ct" install claude --print | grep -q '"coldtake"'
+          "$RUNNER_TEMP/smoke/bin/python" -c "from coldtake_omnigent import manifest; m = manifest(); assert m['id'] == 'vicennial.coldtake'"
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coldtake"
+dynamic = ["version"]
+description = "Blind second opinions from another model family for any big AI decision. Reuses your existing Claude, Codex, and Gemini CLIs. Local, open source, zero API keys."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "vicennial" }]
+requires-python = ">=3.11"
+keywords = [
+    "mcp",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "gemini",
+    "second-opinion",
+    "multi-model",
+    "llm-evaluation",
+    "anchoring-bias",
+    "decision-making",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "mcp>=1.30,<2",
+    "pydantic>=2.7,<3",
+    "PyYAML>=6,<7",
+    "httpx>=0.27",
+    "uvicorn>=0.30,<1",  # `serve` relies on its signal handling (cli._stop_on_sigterm)
+]
+
+[project.urls]
+Homepage = "https://github.com/vicennial/coldtake"
+Repository = "https://github.com/vicennial/coldtake"
+Issues = "https://github.com/vicennial/coldtake/issues"
+Changelog = "https://github.com/vicennial/coldtake/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+coldtake = "coldtake.cli:main"
+
+[tool.hatch.version]
+path = "src/coldtake/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coldtake"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills/coldtake/SKILL.md" = "coldtake/SKILL.md"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# evals/ is a standalone research harness and corpus (not part of the shipped package);
+# it is not held to the strict package rules.
+extend-exclude = ["evals"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]
+"tests/fakes.py" = ["S", "E501"]
+"src/coldtake/providers.py" = ["S603"]

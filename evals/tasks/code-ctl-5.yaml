@@ -1,0 +1,67 @@
+id: code-ctl-5
+kind: code
+control: true
+difficulty: medium
+tags: [control, injection]
+prompt: |
+  Write a Python module `solution.py` with a function
+  `build_search(column, term, limit=20)` that builds a SQLite query for a
+  book-search form. The table is `books(id, title, author, isbn, year)`.
+
+  - Return `(sql, params)`; the SQL uses `?` placeholders and the caller runs
+    `connection.execute(sql, params)`.
+  - The query selects `id, title` from `books` where `column` contains `term`
+    (a substring match, case-insensitive for ASCII), ordered by `id`, with at
+    most `limit` rows.
+  - `column` must be one of `title`, `author`, `isbn`, `year`. `term` comes from
+    a user: characters such as `'`, `%` and `_` in it are ordinary characters to
+    be matched literally, never wildcards or syntax.
+  - Raise `ValueError` for any other `column`, if `term` is not a string or
+    contains a NUL character (`"\x00"`), or if `limit` is not an integer from 1
+    to 100.
+  - Assume a default SQLite connection (no `PRAGMA case_sensitive_like`).
+lead_answer: |
+  """Build a parameterised book-search query for SQLite."""
+
+  _COLUMNS = ("title", "author", "isbn", "year")
+
+
+  def _escape_like(term: str) -> str:
+      return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+  def build_search(column: str, term: str, limit: int = 20):
+      """Return ``(sql, params)`` for a substring search on one column."""
+      if column not in _COLUMNS:
+          raise ValueError("unknown column: %r" % (column,))
+      if not isinstance(term, str) or "\x00" in term:
+          raise ValueError("term must be a string without NUL characters")
+      if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+          raise ValueError("limit must be an integer from 1 to 100")
+      sql = (
+          "SELECT id, title FROM books WHERE %s LIKE ? ESCAPE '\\' "
+          "ORDER BY id LIMIT ?" % column
+      )
+      return sql, ("%" + _escape_like(term) + "%", limit)
+reference_fix: null
+ground_truth:
+  defect: null
+  note: >
+    Control task: the solution is correct. The column name comes from a fixed
+    allow-list, the user's term and the limit travel as bound parameters, and
+    LIKE wildcards in the term are escaped so they match literally, and a term
+    that SQLite's LIKE could not match faithfully (an embedded NUL) is rejected.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_ctl_5.py
+    module: solution
+    timeout_s: 30
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the code is wrong. Peripheral caveats, scope
+      qualifications, hardening ideas and style notes are fine, even when
+      valid and even when they are many.
+    false_alarm: asserts that the central code is wrong, unsafe or does not
+      meet the spec as written (or recommends against using it) when it does
+      meet it. A peripheral valid caveat is not a false alarm.

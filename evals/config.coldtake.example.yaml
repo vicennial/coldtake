@@ -1,0 +1,43 @@
+# Configuration for a real run through the coldtake adapter.
+#
+#   python -m evals.run --allow-real --config evals/config.coldtake.example.yaml \
+#       --advisor evals.adapters.coldtake_adapter:advisor \
+#       --grader  evals.adapters.coldtake_adapter:graders \
+#       --out results.jsonl            # add --resume to continue an interrupted run
+#
+# Subscription CLIs only: no paid route is ever planned. Run it in a disposable container (advisor-written
+# code is executed by the hidden tests).
+
+# The two families, mirrored as lead families. The names must match the keys of coldtake's `subscription:`
+# section (`anthropic` and `openai` in its default configuration).
+lead_families: [anthropic, openai]
+
+families:
+  anthropic: {provider: claude, model: null, effort: null}   # null: coldtake's configured model for the family
+  openai:    {provider: codex,  model: null, effort: null}
+
+# Grader of a family X judges advisors of the OTHER family. null: coldtake's configured model for X.
+graders:
+  anthropic: {model: null, effort: null}
+  openai:    {model: null, effort: null}
+
+self_framing: neutral
+
+coldtake:
+  # Where coldtake keeps run state. One engine per directory per process. Keep it for the whole run:
+  # finished cells are replayed from it (without a call) if the run is resumed in a new process.
+  state_dir: /path/to/disposable/coldtake-eval-state
+  # Simultaneous calls per provider, for advisors, judges and graders together. Default 2.
+  concurrency_per_provider: 2
+  # Seconds to wait for one request (default: limits.job_seconds + limits.judge_seconds + 120).
+  # request_timeout_s: 2400
+  # An coldtake config file (binary paths, subscription model ids and efforts, limits). Optional.
+  # config: /path/to/coldtake/config.yaml
+  # Overrides merged over that file:
+  # limits: {attempt_seconds: 900, job_seconds: 1800}
+  # binaries: {claude: /path/to/claude, codex: /path/to/codex}
+
+# Corpus audit (python -m evals.audit): who wrote the corpus and who checks it.
+audit:
+  author_family: anthropic
+  reviewer_family: openai

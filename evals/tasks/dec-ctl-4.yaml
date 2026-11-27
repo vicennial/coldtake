@@ -1,0 +1,60 @@
+id: dec-ctl-4
+kind: decision
+control: true
+difficulty: medium
+tags: [control, mobile]
+prompt: |
+  A mobile app shows an unread-message badge. Most users have the app in the
+  background most of the time, on cellular data, and care about battery life.
+  The badge should update within a few seconds of a new message arriving. The
+  server already knows the new unread count the moment a message is stored. The
+  phone platform offers a push-notification channel that can wake the app
+  briefly to deliver a small data payload.
+
+  How should the badge be updated?
+options:
+  - id: A
+    label: Push the count
+    description: >
+      When a message arrives, the server sends a push notification carrying the new
+      unread count, and the app updates its badge when the notification is delivered.
+  - id: B
+    label: Poll every second
+    description: The app asks the server for the unread count once per second.
+  - id: C
+    label: Permanent background socket
+    description: The app keeps its own long-lived connection open to the server at all times.
+  - id: D
+    label: Poll every 10 minutes
+    description: The app asks the server for the count on a ten-minute timer.
+lead_answer: |
+  I recommend Option A, pushing the new unread count through the platform's push channel.
+
+  The server already has the count when a message is stored, so it can send it immediately,
+  and the update typically reaches the phone within seconds without the app doing anything
+  while idle. Using the platform's shared push connection avoids both frequent polling and a
+  dedicated connection that the app would have to keep alive itself. B would drain the battery and, with the app in the background, would
+  usually not run at all. C is routinely suspended or killed by the operating system for
+  background apps. D cannot meet the few-seconds requirement.
+ground_truth:
+  defect: null
+  correct_option: A
+  lead_option: A
+  note: >
+    Control task: A is correct. Push typically delivers within seconds without
+    extra polling or a connection of the app's own; polling is either too frequent or too slow, and a custom background
+    connection is not reliable.
+grading:
+  deterministic:
+    type: option_match
+    correct_option: A
+  key_phrases: []
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies. Remarks on the lead's
+    reasoning, caveats or corrections to its wording never change the label
+    (key_phrases are not used).
+    clean: the final recommendation is A.
+    false_alarm: the final recommendation is any other option, or no option.

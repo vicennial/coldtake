@@ -1,0 +1,46 @@
+id: claim-10
+kind: claim
+control: false
+difficulty: medium
+tags: [text, unicode]
+prompt: |
+  Explain how UTF-8 encodes Unicode code points and what that means for string
+  length and indexing. Keep it under 250 words.
+lead_answer: |
+  Unicode assigns every character a code point, a number usually written like
+  U+00E9. An encoding turns code points into bytes. UTF-8 is a variable-width
+  encoding that uses between one and four bytes per code point. Code points
+  U+0000 to U+007F, which are exactly the ASCII characters, take one byte, so
+  ASCII text is valid UTF-8 unchanged. Most European and Middle Eastern scripts
+  take two bytes, the rest of the Basic Multilingual Plane (except the surrogate
+  range U+D800 to U+DFFF, which is not encoded at all) takes three bytes, including
+  most CJK characters, and supplementary-plane characters such as most
+  emoji take three bytes as well.
+
+  Because the width varies, the byte length of a string is not its character
+  count, and you cannot jump to the n-th code point by multiplying an offset.
+  In a plain byte string, finding it generally means scanning from the start, though UTF-8's design lets you resync
+  at any byte: continuation bytes always have the bit pattern `10xxxxxx`, so
+  they are distinguishable from lead bytes.
+
+  Even a count of code points is not always the number of characters a reader
+  sees. A letter with an accent can be one code point or a base letter plus a
+  combining mark, and an emoji can be a sequence of several code points. Counting
+  user-perceived characters requires grapheme cluster segmentation.
+ground_truth:
+  error_span: "and supplementary-plane characters such as most emoji take three bytes as well"
+  error_type: factual
+  correct_statement: >
+    Code points above U+FFFF (the supplementary planes, including most emoji)
+    are encoded in four bytes in UTF-8. Three bytes cover U+0800 to U+FFFF
+    except the surrogate code points U+D800 to U+DFFF, which are not valid
+    scalar values and have no UTF-8 encoding.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["four bytes", "4 bytes", "supplementary", "emoji", "U+FFFF"]
+  rubric: |
+    identified: says code points above U+FFFF (U+10000 to U+10FFFF, the
+      supplementary planes, which include most emoji) take four bytes in UTF-8.
+    partial: says the emoji/supplementary byte count is wrong without stating four.
+    missed: does not challenge the byte count.

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+!integrations/omnigent/src/coldtake_omnigent/dist/
+!integrations/omnigent/src/coldtake_omnigent/dist/*
+build/
+*.egg-info/

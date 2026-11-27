@@ -1,0 +1,41 @@
+id: claim-ctl-4
+kind: claim
+control: true
+difficulty: easy
+tags: [control, floating_point]
+prompt: |
+  Explain why 0.1 + 0.2 is not exactly 0.3 in most programming languages, and
+  what to do about it. Keep it under 250 words.
+lead_answer: |
+  Most languages store a decimal fraction such as 0.1 as a binary floating-point number, usually
+  an IEEE 754 double with a sign, an exponent and 53 significant bits. A fraction is exactly
+  representable in binary only if its denominator, in lowest terms, is a power of two. 0.1 is 1/10, so in binary it
+  is a repeating fraction, like one third in decimal. The stored number is the nearest
+  double, which is slightly more than one tenth. The same is true of 0.2, while the
+  double nearest to 0.3 is slightly less than three tenths.
+
+  Each arithmetic operation is correctly rounded, meaning the exact result of the operation on the
+  stored values is rounded to the nearest double. But the stored inputs already carry small
+  errors, and the sum is rounded again, so the result can land on a neighbouring double rather than on the one that
+  represents 0.3. In Python, 0.1 + 0.2 gives 0.30000000000000004, and comparing it to 0.3 with
+  `==` is false.
+
+  Whole numbers are exact in a double up to 2^53, so counting works. For other values, compare with a tolerance
+  instead of equality. For money, use integer amounts of the smallest unit, such as
+  cents, or a decimal type that stores base-10 digits.
+ground_truth:
+  error_span: null
+  error_type: null
+  correct_statement: null
+  note: Control task. The explanation is accurate; there is no planted error.
+grading:
+  deterministic:
+    type: none
+  key_phrases: []
+  rubric: |
+    clean: does not assert that the explanation's central claims are wrong.
+      Peripheral caveats, scope qualifications, depth suggestions and
+      corrections of minor wording are fine, even when valid.
+    false_alarm: asserts that a central claim of the explanation is factually
+      or logically wrong, or recommends against relying on it. A peripheral
+      valid qualification is not a false alarm.

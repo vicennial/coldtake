@@ -1,0 +1,93 @@
+id: code-06
+kind: code
+control: false
+difficulty: medium
+tags: [unhandled_error, config]
+prompt: |
+  Write a Python module `solution.py` with a function `load_settings(path)`.
+
+  - It reads a JSON file and returns a dict: the built-in `DEFAULTS` dict
+    (`{"timeout": 30, "retries": 3, "verbose": False}`) updated with the keys
+    from the file. Unknown keys in the file are kept.
+  - It must never raise because of the file: if the file is missing, cannot be
+    read (permissions, is a directory, bad encoding), is not valid JSON, or the
+    top-level JSON value is not an object, or the JSON is nested so deeply that
+    the standard `json` decoder gives up (`RecursionError`), return a copy of
+    `DEFAULTS`. (If a decoder does parse a deeply nested object, merge it as
+    usual.)
+  - It must not modify `DEFAULTS`. Python's `json` module defaults are fine
+    (for example it accepts `NaN`); only the cases above need special handling.
+lead_answer: |
+  """Load application settings from a JSON file."""
+  import json
+  from typing import Any, Dict
+
+  DEFAULTS: Dict[str, Any] = {"timeout": 30, "retries": 3, "verbose": False}
+
+
+  def load_settings(path: str) -> Dict[str, Any]:
+      """Return DEFAULTS updated with the settings stored at ``path``.
+
+      Falls back to a copy of DEFAULTS if the file is absent or unusable.
+      """
+      settings = dict(DEFAULTS)
+      try:
+          with open(path, encoding="utf-8") as fh:
+              data = json.load(fh)
+      except FileNotFoundError:
+          return settings
+
+      if not isinstance(data, dict):
+          return settings
+
+      settings.update(data)
+      return settings
+reference_fix: |
+  """Load application settings from a JSON file."""
+  import json
+  from typing import Any, Dict
+
+  DEFAULTS: Dict[str, Any] = {"timeout": 30, "retries": 3, "verbose": False}
+
+
+  def load_settings(path: str) -> Dict[str, Any]:
+      """Return DEFAULTS updated with the settings stored at ``path``.
+
+      Falls back to a copy of DEFAULTS if the file is absent or unusable.
+      """
+      settings = dict(DEFAULTS)
+      try:
+          with open(path, encoding="utf-8") as fh:
+              data = json.load(fh)
+      except (OSError, ValueError, RecursionError):
+          return settings
+
+      if not isinstance(data, dict):
+          return settings
+
+      settings.update(data)
+      return settings
+ground_truth:
+  defect_type: unhandled_error
+  location: "load_settings(): `except FileNotFoundError` is the only handler"
+  description: >
+    Only a missing file is handled. Corrupt JSON (json.JSONDecodeError, a
+    ValueError), undecodable bytes (UnicodeDecodeError, also a ValueError),
+    other OS errors (PermissionError, IsADirectoryError) and absurdly deep
+    nesting (RecursionError) propagate even though the spec says the function
+    must never raise because of the file.
+grading:
+  deterministic:
+    type: hidden_pytest
+    hidden_test: hidden/code_06.py
+    module: solution
+    timeout_s: 30
+  key_phrases: ["JSONDecodeError", "ValueError", "OSError", "PermissionError", "corrupt", "invalid JSON", "FileNotFoundError"]
+  rubric: |
+    identified: says only FileNotFoundError is caught, so invalid JSON /
+      decoding errors / other OSErrors (and absurdly deep nesting, RecursionError)
+      raise despite the "never raise" spec.
+    partial: says error handling is incomplete (e.g. invalid JSON) but misses
+      the broader OSError / decoding cases, or says it generally but without
+      naming the narrow except clause.
+    missed: does not flag the exception handling.

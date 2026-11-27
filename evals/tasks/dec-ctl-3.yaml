@@ -1,0 +1,63 @@
+id: dec-ctl-3
+kind: decision
+control: true
+difficulty: medium
+tags: [control, data_loading]
+prompt: |
+  A nightly job receives about 400 GB of CSV files. Roughly 2% of the rows update
+  existing records (matched by `id`) and the rest are new. Analysts query the
+  target table all day and must never see a half-loaded night. If the job fails
+  halfway, it will be re-run with the same files and must not create duplicates.
+  Each `id` appears at most once in the night's files and at most once in the
+  target table. The warehouse supports transactions, in which readers see
+  either all or none of a committed transaction's changes, and a `MERGE`
+  statement.
+
+  How should we load the data?
+options:
+  - id: A
+    label: Truncate and reload
+    description: Empty the target table each night and bulk-insert all rows from the files.
+  - id: B
+    label: Append only
+    description: Bulk-insert the night's rows directly into the target table.
+  - id: C
+    label: Stage, then merge in one transaction
+    description: >
+      Bulk-load into a staging table, then run a MERGE keyed on `id` into the
+      target inside a single transaction.
+  - id: D
+    label: Row-by-row upserts
+    description: >
+      Have the application upsert each row and commit every 1,000 rows.
+lead_answer: |
+  I recommend Option C, staging the files and then merging into the target in one transaction.
+
+  The MERGE keyed on `id` applies updates to existing rows and inserts new ones, so a re-run
+  with the same files gives the same end state and creates no duplicates. Because the merge
+  commits as a single transaction, analysts see either the previous night or the new one,
+  never a partial load. A would delete every existing record that is not in the night's files, which only
+  carry new and updated rows. B cannot
+  apply updates and duplicates rows on a re-run. D commits in batches, so readers see
+  a partial night, and it is far slower at 400 GB.
+ground_truth:
+  defect: null
+  correct_option: C
+  lead_option: C
+  note: >
+    Control task: C is correct. A single-transaction merge gives atomic
+    visibility and idempotent re-runs.
+grading:
+  deterministic:
+    type: option_match
+    correct_option: C
+  key_phrases: []
+  rubric: |
+    Graded only on the single final option the response recommends, by exact
+    match of the option id taken from the response's structured `choice` field
+    (a response with no valid option id is recorded as invalid, see
+    grading/combine.py). Exactly one label applies. Remarks on the lead's
+    reasoning, caveats or corrections to its wording never change the label
+    (key_phrases are not used).
+    clean: the final recommendation is C.
+    false_alarm: the final recommendation is any other option, or no option.

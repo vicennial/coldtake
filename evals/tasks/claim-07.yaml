@@ -1,0 +1,43 @@
+id: claim-07
+kind: claim
+control: false
+difficulty: easy
+tags: [numerics, floating_point]
+prompt: |
+  Explain how IEEE 754 double-precision floating point stores numbers and why
+  0.1 + 0.2 does not equal 0.3 exactly. Keep it under 250 words.
+lead_answer: |
+  An IEEE 754 double uses 64 bits: 1 sign bit, 11 exponent bits and 52 explicit
+  fraction bits. With the implicit leading 1 of normalized numbers, that gives 53
+  bits of precision. That gives about 7 decimal digits of precision, which is
+  the number of digits you can rely on when converting a decimal number to a
+  double and back.
+
+  Many decimal fractions have no finite binary expansion. The value 0.1, for
+  example, is a repeating pattern in binary, just as one third is a repeating
+  decimal. The hardware stores the nearest representable double, which is
+  slightly different from 0.1. The same happens for 0.2. Their sum is again
+  rounded to the nearest double, and the result is not the double that 0.3 rounds
+  to. In Python, `0.1 + 0.2` prints `0.30000000000000004`.
+
+  Two practical consequences follow. Do not rely on `==` to compare
+  computed floating-point results; use a tolerance such as `math.isclose`. And use integers or a decimal
+  type for money, since integers up to 2^53 are represented exactly while many
+  decimal fractions are not.
+ground_truth:
+  error_span: "That gives about 7 decimal digits of precision"
+  error_type: factual
+  correct_statement: >
+    53 bits of precision correspond to about 15 to 17 significant decimal digits
+    (15 digits round-trip reliably from decimal to double and back, for values
+    in the normal range). About 7
+    digits is the figure for single precision, which has 24 bits.
+grading:
+  deterministic:
+    type: none
+  key_phrases: ["15", "16", "17 digits", "single precision", "24 bits", "7 digits"]
+  rubric: |
+    identified: says 53 bits is about 15-17 decimal digits, not about 7. (Naming
+      single precision as the source of the 7-digit figure is optional.)
+    partial: says the digit count is wrong without giving the correct value.
+    missed: does not challenge the digit count.

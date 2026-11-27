@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "coldtake eval: advisor response contract",
+  "description": "What the harness asks every advisor to return, per mode and task kind. A real adapter maps the coldtake tool result onto this shape.",
+  "type": "object",
+  "required": ["text"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "enum": ["sound", "defect_found", "uncertain", null],
+      "description": "review mode only: whether the reviewer found a material defect in the lead's answer."
+    },
+    "choice": {
+      "type": ["string", "null"],
+      "description": "decision tasks: the option id the advisor would choose (A-D), or 'none'. In review mode this is the advisor's own choice after reviewing."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["summary"],
+        "additionalProperties": false,
+        "properties": {
+          "summary": {"type": "string"},
+          "location": {"type": ["string", "null"]},
+          "severity": {"enum": ["critical", "major", "minor", null]}
+        }
+      }
+    },
+    "proposed_fix": {
+      "type": ["string", "null"],
+      "description": "code tasks: the complete corrected module (review mode) or the advisor's own complete solution (blind mode)."
+    },
+    "text": {"type": "string", "description": "free-form memo"},
+    "comparison": {
+      "type": ["object", "null"],
+      "description": "blind modes: the router's comparison of the advisor memo with the sealed lead answer.",
+      "required": ["relation"],
+      "additionalProperties": false,
+      "properties": {
+        "relation": {"enum": ["agree", "partial", "conflict"]},
+        "crux": {"type": "string"}
+      }
+    }
+  }
+}
